@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "style": "cozy-hand-painted-dream-sky",
+  "assets": {
+    "arena": {
+      "file": "/assets/generated/cozy-cave-arena.png",
+      "width": 1672,
+      "height": 941,
+      "alpha": false,
+      "status": "obsolete-theme",
+      "usage": "provenance only; obsolete theme; do not wire as the active background"
+    },
+    "wizardCyan": {
+      "file": "/assets/generated/wizard-cyan.png",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true,
+      "status": "candidate",
+      "facing": "right"
+    },
+    "wizardPink": {
+      "file": "/assets/generated/wizard-pink.png",
+      "width": 1254,
+      "height": 1254,
+      "alpha": true,
+      "status": "candidate",
+      "facing": "left"
+    },
+    "reflectors": {
+      "file": "/assets/generated/cave-reflectors-sheet.png",
+      "width": 1672,
+      "height": 941,
+      "alpha": true,
+      "status": "obsolete-theme",
+      "grid": {
+        "columns": 3,
+        "rows": 2,
+        "topRow": "stalactite",
+        "bottomRow": "stalagmite",
+        "variants": ["short-wide", "medium", "tall-narrow"]
+      },
+      "usage": "provenance only; obsolete theme; collision remains the authoritative triangle from shared config"
+    }
+  }
+}
