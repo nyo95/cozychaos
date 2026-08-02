@@ -142,3 +142,23 @@ would create a visible-versus-physical mismatch. `drawIsland` and
 the PixelLab image is a palette/composition target for the next environment
 pass. Three additional generations were spent, leaving 23 of 40 trial
 generations. No credential or remote job identifier is stored.
+
+## Mobile redesign concept pack — 2026-08-03
+
+The built-in OpenAI ImageGen workflow produced a mobile-first art-direction
+target and four supporting candidate sheets under
+`client/public/assets/concepts/mobile-redesign-2026-08-03/`. References were
+limited to the two user-supplied Cozy Chaos gameplay screenshots plus the
+repository's accepted PixelLab environment and active cyan wizard sheets.
+
+| File | Dimensions | Alpha/post-process | Status |
+|---|---:|---|---|
+| `mobile-gameplay-ideal.png` | 851×1847 | Opaque source output | `reference` |
+| `mobile-hud-kit.png` | 1254×1254 | Green key, soft matte, despill | `candidate` |
+| `environment-props-kit.png` | 1254×1254 | Red key, tight hard matte | `candidate` |
+| `feedback-vfx-sheet.png` | 1254×1254 | Green key, soft matte, despill | `candidate` |
+| `cyan-hit-ko-concept-sheet.png` | 2172×724 | Green key, soft matte, despill | `animation-concept` |
+
+The pack intentionally contains no fixed spell projectile. Rune bodies and
+fragments remain procedural, and environment pixels remain presentation-only.
+See the pack-local `README.md` and `manifest.json` for integration guardrails.
