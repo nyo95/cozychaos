@@ -86,7 +86,18 @@ export function mapToSpell(
   context: MappingContext,
 ): SpellInstance {
   const definition = CONFIG.spells[classification.family];
-  const features = classification.features;
+
+  /**
+   * Deliberately `canonical`, not `features`.
+   *
+   * Draw Assist may decide *which* family a drawing belongs to — that is what
+   * it is for (PRD §14). It may not decide how strong that spell is. Reading
+   * geometry from the assisted pipeline let High assist smooth a stroke into
+   * extra detected corners and turn one bounce into four, which PRD §11 rules
+   * out: "Tidak ada equipment dengan damage, mana, atau knockback lebih
+   * tinggi." A settings toggle is no different from equipment here.
+   */
+  const features = classification.canonical;
 
   const origin = resolveOrigin(definition, features, context);
   const direction = resolveDirection(definition, features);
@@ -105,8 +116,9 @@ export function mapToSpell(
 
   // Confidence scales speed only, never knockback. A hesitant reading makes a
   // slightly lazier spell, not a weaker one — PRD §7.4, "Kerapian memberi
-  // kontrol, bukan damage mentah."
-  const confidenceScale = lerp(0.85, 1, classification.confidence);
+  // kontrol, bukan damage mentah." Canonical confidence, so the assist bonus
+  // cannot buy speed.
+  const confidenceScale = lerp(0.85, 1, classification.canonicalConfidence);
 
   const gravityScale = definition.gravityScale * (context.lowGravity ? CONFIG.arena.lowGravityMultiplier : 1);
 

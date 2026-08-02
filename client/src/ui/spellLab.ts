@@ -69,6 +69,10 @@ export class SpellLab {
   private assist: AssistLevel = 'standard';
   private strokeIndex = 0;
   private frame = 0;
+  /** Set when the stroke grew; the render loop consumes it. */
+  private previewDirty = false;
+  /** True once the player has released their first stroke. */
+  private hasCommitted = false;
 
   constructor(private readonly elements: Elements) {
     const context = elements.canvas.getContext('2d');
@@ -84,7 +88,7 @@ export class SpellLab {
       this.assist = elements.assist.value === 'high' ? 'high' : 'standard';
       // Re-read the stroke already on screen so the effect of the setting is
       // immediately visible rather than deferred to the next drawing.
-      this.evaluate(this.capture.stroke);
+      if (this.hasCommitted) this.evaluate(this.capture.stroke, true);
     });
 
     attachPointerStream(
@@ -112,26 +116,31 @@ export class SpellLab {
     this.elements.hint.style.opacity = '0';
   }
 
+  /**
+   * Records the sample and marks the preview stale — it does not classify.
+   *
+   * Classification is deferred to the next animation frame. A pointer move can
+   * fire many times per frame (a 1000 Hz mouse with coalesced events fires
+   * dozens), and running the full pipeline on each one did work that was
+   * thrown away microseconds later by the next sample, stuttering the very
+   * line the player is drawing. One classification per frame is the most the
+   * display can show anyway.
+   */
   private onStrokeMove(point: Vec2): void {
     if (!this.capture.isDrawing) return;
     this.capture.extend(point);
     this.updateInk();
+    this.previewDirty = true;
 
-    /**
-     * The live preview PRD §14 asks for: a thin indication of where the spell
-     * is heading before the stroke is committed, without spelling out the
-     * final trajectory. It runs the same shared classifier the server will run
-     * (PRD §15), so what the player sees mid-stroke cannot contradict the
-     * verdict they get on release.
-     */
-    this.evaluate(this.capture.stroke);
-
+    // Ink ran out mid-segment: the capture ended itself, so commit now.
     if (!this.capture.isDrawing) this.onStrokeEnd();
   }
 
   private onStrokeEnd(): void {
     const stroke = this.capture.end();
-    this.evaluate(stroke);
+    this.previewDirty = false;
+    this.hasCommitted = true;
+    this.evaluate(stroke, true);
     if (this.classification !== null) this.recordDiscovery(this.classification.family);
     this.strokeIndex++;
   }
@@ -144,8 +153,18 @@ export class SpellLab {
    * shape twice in a row produces the same variance and a tester comparing two
    * attempts is comparing their drawing, not the dice.
    */
-  private evaluate(stroke: readonly Vec2[]): void {
-    if (stroke.length < CONFIG.strokeLimits.minPoints) {
+  private evaluate(stroke: readonly Vec2[], commit: boolean): void {
+    /**
+     * A released stroke always produces a spell — even a single tap, which
+     * becomes an Arcane Wisp.
+     *
+     * PRD §7.1 and §8.5 make this the core promise: "Setiap coretan menjadi
+     * sihir. Tidak ada gambar yang sia-sia." Showing "Draw something" instead
+     * quietly breaks it, and does so precisely for the smallest, most
+     * hesitant marks — the ones a new player makes first. Only the *live*
+     * preview may show nothing, and only before there is a shape to read.
+     */
+    if (!commit && stroke.length < CONFIG.strokeLimits.minPoints) {
       this.classification = null;
       this.spell = null;
       this.renderReadout();
@@ -183,7 +202,7 @@ export class SpellLab {
     const { family, blurb, confidenceFill, confidenceLabel, params } = this.elements;
 
     if (this.classification === null || this.spell === null) {
-      family.textContent = 'Draw something';
+      family.textContent = this.hasCommitted ? 'Keep drawing' : 'Draw something';
       family.style.color = '';
       blurb.textContent = 'Any single line becomes a spell.';
       confidenceFill.style.width = '0%';
@@ -289,6 +308,11 @@ export class SpellLab {
   }
 
   private loop(timeMs: number): void {
+    if (this.previewDirty) {
+      this.previewDirty = false;
+      this.evaluate(this.capture.stroke, false);
+    }
+
     this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
     drawScene(this.ctx, this.viewport, {
       casterPosition: CASTER_POSITION,

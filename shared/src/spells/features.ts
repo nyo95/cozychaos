@@ -6,6 +6,7 @@ import {
   boundingBox,
   centroid,
   circularity,
+  decimate,
   clamp01,
   detectCorners,
   distance,
@@ -125,11 +126,15 @@ const TIGHT_CLOSURE_FRACTION = 0.35;
  * server's authoritative reading.
  */
 export function extractFeatures(
-  raw: readonly Vec2[],
+  input: readonly Vec2[],
   options: FeatureOptions = DEFAULT_OPTIONS,
 ): StrokeFeatures {
   const limits = CONFIG.strokeLimits;
   const assist = CONFIG.assist[options.assist];
+
+  // PRD §15's point cap, enforced here so that client and server apply it
+  // identically and no caller can forget it.
+  const raw = decimate(input, limits.maxPoints);
 
   // A stroke with too few samples cannot describe a shape. Report it as
   // degenerate rather than throwing: PRD §7.1 forbids total failure, so the
@@ -197,9 +202,25 @@ export function extractFeatures(
    */
   const tightlyClosed = endpointGap < CONFIG.classifier.closureRatio * TIGHT_CLOSURE_FRACTION;
 
+  /**
+   * The corner threshold is deliberately *not* scaled by assist.
+   *
+   * It is a boundary between families rather than a measure of how imperfect a
+   * drawing may be, and moving it in either direction simply trades one family
+   * for another. Raising it — which is what multiplying by the tolerance scale
+   * did — put the bar at 100°, above the 90° of an ordinary zigzag, and erased
+   * the Angular family on High assist: a clean three-corner zigzag came back
+   * as an Arc Bolt. Lowering it instead made noisy rings sprout corners and
+   * cost the Loop family just as much.
+   *
+   * Assist earns its keep on this stroke through smoothing, which removes the
+   * tremor that would otherwise fake corners, and through the tolerance bands
+   * that genuinely describe imperfection: closure, straightness, and radial
+   * consistency.
+   */
   const corners = detectCorners(
     points,
-    CONFIG.classifier.cornerAngleMin * assist.toleranceScale,
+    CONFIG.classifier.cornerAngleMin,
     CONFIG.classifier.cornerMinSeparation,
     { closed: tightlyClosed, window: CONFIG.classifier.cornerWindow },
   );

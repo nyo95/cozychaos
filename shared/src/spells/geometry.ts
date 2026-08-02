@@ -139,6 +139,33 @@ export function dedupe(points: readonly Vec2[], epsilon = 1e-6): Vec2[] {
 }
 
 /**
+ * Reduces a polyline to at most `maxPoints`, keeping both endpoints.
+ *
+ * PRD §15 requires the server to cap the number of points a client may submit.
+ * The cap has to be enforced before any geometry runs, not merely declared:
+ * corner detection and turning are O(n) per stroke and a high-polling pointer
+ * with coalesced events can emit thousands of samples in a seven-second Draw
+ * phase, so an unenforced limit is both a fairness hole and a way for one
+ * client to make the server do arbitrary work.
+ *
+ * Uniform index selection rather than curve-aware simplification: the stroke is
+ * resampled by arc length immediately afterwards anyway, and a shape-aware
+ * reduction here would make the result depend on which points survived, which
+ * is exactly the hand-speed sensitivity PRD §7.1 rules out.
+ */
+export function decimate(points: readonly Vec2[], maxPoints: number): readonly Vec2[] {
+  if (maxPoints < 2) throw new Error('decimate requires maxPoints >= 2');
+  if (points.length <= maxPoints) return points;
+
+  const out: Vec2[] = [];
+  for (let i = 0; i < maxPoints; i++) {
+    const index = Math.round((i * (points.length - 1)) / (maxPoints - 1));
+    out.push(points[index]!);
+  }
+  return out;
+}
+
+/**
  * Resamples the polyline into exactly `count` points spaced evenly by arc
  * length.
  *

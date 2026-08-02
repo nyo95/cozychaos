@@ -131,6 +131,15 @@ export interface StrokeLimits {
   readonly maxPoints: number;
   /** Points below this count cannot describe a shape; they become a Wisp. */
   readonly minPoints: number;
+  /**
+   * Smallest gap, in arena units, between two consecutive captured samples.
+   *
+   * A 1000 Hz pointer with coalesced events emits samples a fraction of a pixel
+   * apart. They add no shape information, but they do multiply the work of
+   * every downstream pass, so they are dropped at the source rather than
+   * decimated later.
+   */
+  readonly minSampleSpacing: number;
   /** Maximum normalised arc length accepted before truncation. */
   readonly maxLength: number;
   /**

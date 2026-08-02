@@ -60,6 +60,55 @@ describe('basic capture', () => {
   });
 });
 
+describe('high-polling pointers cannot flood the capture', () => {
+  /**
+   * A 1000 Hz mouse with coalesced pointer events reports dozens of samples per
+   * frame, sometimes a fraction of a pixel apart. Before this was handled, all
+   * of them were kept and each one re-ran the full classifier, so the better
+   * the hardware the worse the Spell Lab performed.
+   */
+  it('drops samples closer together than the minimum spacing', () => {
+    capture.begin({ x: 0, y: 0 });
+    for (let i = 1; i <= 5000; i++) {
+      capture.extend({ x: i * 0.00002, y: 0 });
+    }
+    expect(capture.stroke.length).toBeLessThan(200);
+  });
+
+  it('stays within the server point cap however dense the input', () => {
+    // PRD §15 caps the points a client may submit; keeping the capture under
+    // the cap by construction means a stroke is never silently truncated.
+    capture.begin({ x: -1, y: 0 });
+    for (let i = 1; i <= 40_000; i++) {
+      capture.extend({ x: -1 + i * 0.00005, y: Math.sin(i * 0.001) * 0.2 });
+    }
+    expect(capture.stroke.length).toBeLessThanOrEqual(CONFIG.strokeLimits.maxPoints);
+  });
+
+  it('describes the same shape whether sampled densely or sparsely', () => {
+    const trace = (samples: number): StrokeCapture => {
+      const run = new StrokeCapture();
+      run.begin({ x: -0.4, y: 0 });
+      for (let i = 1; i <= samples; i++) {
+        run.extend({ x: -0.4 + (0.8 * i) / samples, y: 0 });
+      }
+      run.end();
+      return run;
+    };
+    expect(trace(20_000).length).toBeCloseTo(trace(80).length, 6);
+  });
+
+  it('finishes on the true endpoint, so the aim is not nudged', () => {
+    // The endpoint feeds the aim direction. Dropping the final sub-spacing
+    // fragment would shift where the spell goes by a hair on every stroke.
+    capture.begin({ x: 0, y: 0 });
+    capture.extend({ x: 0.4, y: 0 });
+    capture.extend({ x: 0.4001, y: 0 });
+    const stroke = capture.end();
+    expect(stroke[stroke.length - 1]).toEqual({ x: 0.4001, y: 0 });
+  });
+});
+
 describe('ink budget (PRD §7.2)', () => {
   it('spends ink as the line grows', () => {
     drawAlong({ x: -0.5, y: 0 }, { x: 0.5, y: 0 }, 20);

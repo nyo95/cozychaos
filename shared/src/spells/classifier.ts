@@ -20,7 +20,26 @@ export interface Classification {
   readonly rawFamily: SpellFamily;
   /** True when the Wisp floor overrode the winner. */
   readonly fellBackToWisp: boolean;
+  /**
+   * The reading the classifier actually used, at the player's assist level.
+   * Diagnostic only — never build a spell from this.
+   */
   readonly features: StrokeFeatures;
+  /**
+   * The same stroke read at Standard assist. **Every gameplay parameter is
+   * computed from this**, never from `features`.
+   *
+   * Draw Assist is an accessibility setting (PRD §14) and PRD §11 forbids any
+   * setting from conferring a competitive advantage. Smoothing passes and
+   * widened tolerance change the measured corner count, size, and curvature,
+   * so building a spell from the assisted reading let High assist hand the
+   * same gesture four bounces where Standard gave one — a 26% knockback
+   * difference from a menu toggle. Separating the two pipelines is what keeps
+   * assist confined to recognition.
+   */
+  readonly canonical: StrokeFeatures;
+  /** Confidence of the canonical reading. The only confidence gameplay sees. */
+  readonly canonicalConfidence: number;
 }
 
 export interface ClassifyOptions {
@@ -49,14 +68,24 @@ export function classifyStroke(
   options: ClassifyOptions = DEFAULT_OPTIONS,
 ): Classification {
   const features = extractFeatures(raw, { assist: options.assist });
-  return classifyFeatures(features, options);
+  // At Standard assist the two readings are identical, so skip the second pass.
+  const canonical =
+    options.assist === 'standard' ? features : extractFeatures(raw, { assist: 'standard' });
+  return classifyFeatures(features, options, canonical);
 }
 
-/** Classifies pre-extracted features. Split out so the server can validate a
- * stroke, extract once, and classify without redoing the geometry. */
+/**
+ * Classifies pre-extracted features. Split out so the server can validate a
+ * stroke, extract once, and classify without redoing the geometry.
+ *
+ * `canonical` must be the Standard-assist reading of the same stroke. It
+ * defaults to `features`, which is correct only when the caller is already at
+ * Standard assist.
+ */
 export function classifyFeatures(
   features: StrokeFeatures,
   options: ClassifyOptions = DEFAULT_OPTIONS,
+  canonical: StrokeFeatures = features,
 ): Classification {
   const assist = CONFIG.assist[options.assist];
 
@@ -69,6 +98,8 @@ export function classifyFeatures(
       rawFamily: 'wisp',
       fellBackToWisp: true,
       features,
+      canonical,
+      canonicalConfidence: 0,
     };
   }
 
@@ -107,7 +138,23 @@ export function classifyFeatures(
     rawFamily,
     fellBackToWisp,
     features,
+    canonical,
+    canonicalConfidence: canonical === features ? confidence : confidenceOf(canonical),
   };
+}
+
+/**
+ * Confidence of a reading judged at Standard tolerance, with no assist bonus.
+ *
+ * Used for the one gameplay quantity that reads confidence — launch speed — so
+ * that turning assist on cannot make a spell travel faster.
+ */
+function confidenceOf(features: StrokeFeatures): number {
+  if (features.degenerate) return 0;
+  const scores = scoreFamilies(gatherEvidence(features, 1));
+  const best = Math.max(...Object.values(scores));
+  const messPenalty = 1 - MAX_MESS_PENALTY * clamp01(features.irregularity / MESS_REFERENCE);
+  return clamp01(best * messPenalty);
 }
 
 const FAMILY_ORDER: readonly SpellFamily[] = ['stroke', 'loop', 'spiral', 'angular'];
@@ -210,9 +257,17 @@ function gatherEvidence(features: StrokeFeatures, tolerance: number): Evidence {
    * Starts above one full revolution, not at it. Any closed shape winds
    * exactly 2π by definition, so a ramp starting below that would read every
    * circle and every triangle as partly spiral.
+   *
+   * Deliberately free of `tolerance`. This is a boundary *between* two
+   * families, not a band describing how imperfect a drawing may be, and assist
+   * has no business moving it — the question "ring or spiral?" has the same
+   * answer whatever a player's motor control is. Scaling it did real damage:
+   * dividing the ceiling by 1.45 collapsed the ramp to a width of 0.01 radians,
+   * so on High assist every slightly over-drawn ring scored a full
+   * `multiRevolution`, which zeroes the Loop score. Rings became unrecognisable
+   * on the setting meant to make them easier.
    */
-  const multiRevolution =
-    encloses * inverseLerp(TAU * 1.15, thresholds.spiralTurningMin / tolerance, winding);
+  const multiRevolution = encloses * inverseLerp(TAU * 1.15, thresholds.spiralTurningMin, winding);
 
   // Requires both a wide radius spread and a monotonic march. A wobbly circle
   // has spread without march; a spiral has both.

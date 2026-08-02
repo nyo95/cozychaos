@@ -10,7 +10,7 @@ shape, direction, and size of each drawing become a physical spell.
 ## Run it
 
 ```bash
-npm install
+npm ci           # use ci, not install — the lockfile is authoritative
 npm run dev      # opens the Spell Lab at localhost:5173
 ```
 
@@ -18,10 +18,15 @@ Draw anywhere on the island. The panel on the right shows which spell family
 your drawing became and every parameter it decided. Find all four families.
 
 ```bash
-npm test         # 93 tests
+npm test         # 117 tests
 npm run typecheck
 npm run build
+npm audit        # must stay at 0 vulnerabilities
 ```
+
+**Status:** technical prototype. Not a validated Stage 0 — that needs a human
+playtest cohort, which no amount of code can substitute for. See the handover
+section at the end of `changelog.md`.
 
 ## Documents
 
@@ -51,10 +56,15 @@ From PRD §21, and they are not negotiable:
 - The renderer never decides score or collision.
 - No new dependency without a written reason and a small spike.
 
-Two more that this session added:
+Three more these sessions added:
 
 - Client and server share `CONFIG` and the classifier, so the in-game preview
   and the server's verdict are the same computation and cannot disagree.
+- **Draw Assist affects recognition only.** Every gameplay parameter comes from
+  `classification.canonical`, the Standard-assist reading. And tolerance
+  scaling may widen bands that measure imperfection, but must never move a
+  boundary between spell families — doing either got both directions of this
+  wrong once already. `shared/src/spells/fairness.test.ts` guards it.
 - Terminology: a **Turn** is one Setup→Draw→Reveal→Resolve→Score cycle, a
   **Round** ends in a knock-out and is worth a Star, a **Match** is first to
   three. Wobble resets per Round; ink resets per Turn. See `PRD-AMENDMENTS.md`

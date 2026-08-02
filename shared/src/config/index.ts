@@ -78,6 +78,9 @@ export const CONFIG: GameConfig = Object.freeze({
   strokeLimits: Object.freeze({
     maxPoints: 512,
     minPoints: 4,
+    // ~1–2 screen pixels at typical window sizes: below the resolution of any
+    // deliberate gesture, well above pointer jitter.
+    minSampleSpacing: 0.0025,
     maxLength: 12.0,
     // ~3% of the arena width — below a deliberate gesture, above a twitch.
     minSize: 0.06,
@@ -157,7 +160,11 @@ export const CONFIG: GameConfig = Object.freeze({
     }),
     high: Object.freeze({
       toleranceScale: 1.45,
-      smoothingPasses: 3,
+      // Two passes, not three. Smoothing removes the tremor that fakes corners
+      // on a ring, but it also rounds the real corners of a zigzag, so more is
+      // not better: measured across tremor levels, three passes cost the
+      // Angular family more than the extra pass gained elsewhere.
+      smoothingPasses: 2,
       confidenceBonus: 0.12,
     }),
   }),

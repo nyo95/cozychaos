@@ -6,6 +6,124 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 2: Perbaikan hasil review
+
+**Status Stage 0:** technical prototype disetujui, **belum** tervalidasi
+sebagai Stage 0. Yang menghalangi sekarang hanya playtest manusia.
+
+Review menemukan 5 temuan. Nomor 1–4 diperbaiki di sesi ini; nomor 5 butuh
+manusia dan tidak bisa dikerjakan di sini.
+
+### Temuan 1 — Draw Assist mengubah physics (blocker fairness)
+
+**Benar, dan lebih parah dari yang dilaporkan.**
+
+Reviewer mengukur input identik menghasilkan 4 vs 1 pantulan dan knockback
+1,73 vs 1,37. Angkanya cocok persis dengan `1.25 + 4×0.12` dan `1.25 + 1×0.12`
+— penyebabnya spell dibangun dari feature hasil pipeline ber-assist, sehingga
+smoothing dan toleransi yang melebar mengubah jumlah sudut terdeteksi.
+
+Perbaikan: `Classification` sekarang membawa dua pembacaan. `features` adalah
+pembacaan ber-assist yang dipakai untuk **memutuskan keluarga**, dan
+`canonical` adalah pembacaan Standard yang dipakai untuk **semua parameter
+gameplay** — aim, radius, massa, spin, bounces, knockback, variance, dan speed.
+Assist boleh menentukan gambar itu Loop atau Wisp; assist tidak boleh
+menentukan seberapa kuat Loop itu.
+
+**Saat menulis test regresinya, ditemukan bug yang jauh lebih serius:
+High assist membuat recognition lebih buruk, bukan lebih baik.** Diukur pada 60
+lingkaran bertremor: Standard mengenali 60, High mengenali **0**. Zigzag bersih
+tiga sudut terbaca Arc Bolt. Dua penyebab:
+
+1. `cornerAngleMin * toleranceScale` menaikkan ambang sudut ke 100°, di atas
+   90° milik zigzag biasa. Semua band toleransi lain melebar dengan dikalikan
+   karena mengukur "seberapa jauh gambar boleh meleset"; yang ini kebalikannya
+   — ambang lebih tinggi berarti lebih sedikit sudut terdeteksi.
+2. `spiralTurningMin / toleranceScale` menurunkan plafon ramp spiral ke 7,24
+   sementara lantainya 7,23. Ramp selebar 0,01 radian: setiap lingkaran yang
+   sedikit overdraw langsung mendapat `multiRevolution` penuh, yang menolkan
+   skor Loop.
+
+Prinsip yang sekarang dipegang dan ditulis di kode: **toleransi hanya melebarkan
+band yang mengukur ketidaksempurnaan, tidak pernah menggeser batas antar
+keluarga.** Ambang sudut dan ambang spiral keduanya batas antar keluarga, jadi
+tidak diskalakan sama sekali. Assist bekerja lewat smoothing dan lewat band
+closure, straightness, serta radial consistency.
+
+`smoothingPasses` untuk High diturunkan 3 → 2: diukur lintas level tremor,
+pass ketiga membulatkan sudut zigzag asli lebih banyak daripada keuntungan yang
+diberikannya di tempat lain.
+
+Setelah perbaikan, pada tremor berat (noise 0.18) High assist mengenali 59/60
+lingkaran vs 47/60 pada Standard — arah yang seharusnya.
+
+Test baru `shared/src/spells/fairness.test.ts` mengunci keduanya: physics
+identik lintas setting, **dan** recognition High tidak pernah lebih rendah dari
+Standard. Yang kedua adalah cek yang hilang di sesi 1 — sesi 1 menguji assist
+tidak menambah *power*, tapi tidak pernah menguji assist benar-benar
+*membantu*, sehingga kegagalan total itu lolos tanpa terdeteksi.
+
+### Temuan 2 — Checkout tidak reproducible
+
+Benar. `package-lock.json` sekarang di-commit. `npm audit` melaporkan 5
+kerentanan (1 critical, 1 high, 3 moderate), semuanya berasal dari rantai
+esbuild → vite → vitest. Toolchain di-upgrade ke vite 8 dan vitest 4;
+`npm audit` sekarang **0 vulnerabilities**.
+
+TypeScript sengaja ditahan di 5.9 dan tidak dinaikkan ke 7.x — itu rewrite
+compiler yang baru, dan menaikkannya di sesi perbaikan fairness adalah risiko
+yang tidak perlu. Catat sebagai keputusan, bukan kelalaian.
+
+### Temuan 3 — `maxPoints: 512` tidak pernah ditegakkan
+
+Benar, dan ada dua lapis yang perlu diperbaiki:
+
+- `decimate()` baru di `shared/src/spells/geometry.ts`, dipanggil di awal
+  `extractFeatures`, sehingga batas PRD §15 ditegakkan identik di client dan
+  server dan tidak bisa dilupakan pemanggil.
+- `StrokeCapture` membuang sample yang lebih rapat dari `minSampleSpacing`, dan
+  menipiskan diri (buang selang-seling, gandakan spacing) saat mencapai
+  `maxPoints`. Spacing saja tidak cukup: spacing membatasi kerapatan tapi bukan
+  panjang, dan sapuan panjang tetap tembus ke 1400 titik saat diuji.
+- Klasifikasi live tidak lagi jalan per pointer sample. `onStrokeMove` hanya
+  menandai preview basi; render loop mengklasifikasi sekali per frame.
+
+Saat menulis testnya ditemukan satu bug lagi: membuang sample sub-spacing juga
+**membuang titik akhir stroke yang sebenarnya**. Titik akhir ikut menentukan
+arah bidik, jadi setiap stroke arahnya bergeser sedikit. `end()` sekarang
+menambahkan fragmen terakhir sebelum menutup.
+
+### Temuan 4 — Stroke kecil tidak jadi Wisp
+
+Benar. UI memakai satu jalur untuk live preview dan untuk stroke yang dilepas,
+jadi ambang "belum cukup titik" milik preview ikut menelan hasil akhir dan
+tampilan diam-diam kembali ke "Draw something". Sekarang `evaluate()` punya
+mode `commit`: stroke yang dilepas **selalu** menghasilkan spell, termasuk satu
+ketukan yang jadi Arcane Wisp. Hanya live preview yang boleh kosong.
+
+### Temuan 5 — Exit criteria butuh cohort manusia
+
+Setuju sepenuhnya, dan tidak dikerjakan di sini. Menemukan 4/4 dalam satu sesi
+membuktikan keempat keluarga terjangkau, bukan bahwa 90% penguji bisa
+mencapainya. Butuh minimal 10 penguji dan pencatatan hasil.
+
+### Verifikasi sesi 2
+
+| Cek | Hasil |
+|---|---|
+| `npm ci` dari lockfile | bersih |
+| `npm audit` | **0 vulnerabilities** |
+| `npm test` | **117 passed** (naik dari 93) |
+| `npm run typecheck` | bersih |
+| `npm run build` | bersih |
+| Assist: physics identik | dikunci test, 9 bentuk |
+| Assist: recognition tidak turun | dikunci test, 4 level tremor × 4 keluarga × 60 seed |
+
+Belum diverifikasi: rendering canvas dan interaksi pointer di browser asli —
+sama seperti sesi 1, butuh manusia.
+
+---
+
 ## 2026-08-02 — Sesi 1: Audit PRD + Stage 0 (Spell Lab)
 
 **Orchestrator:** Claude
@@ -137,7 +255,7 @@ sekali (`npm run dev`) sebelum Stage 0 dinyatakan lulus.
   di-port. Asset provenance register (PRD §16) belum dibuat karena belum ada
   aset. Wajib ada sebelum aset pertama masuk build.
 
-### 6. Untuk codex — pekerjaan berikutnya
+### 6. Untuk codex — pekerjaan berikutnya (sesi 1; lihat handover di bawah)
 
 Urutan mengikuti stage gate PRD §18. **Jangan lompat ke Stage 1 sebelum Stage 0
 diuji ke manusia** — itu justru risiko yang PRD §20 baris terakhir peringatkan.
@@ -156,3 +274,63 @@ diuji ke manusia** — itu justru risiko yang PRD §20 baris terakhir peringatka
 Kalau ada yang terasa aneh di `shared/src/spells/`, baca komentarnya dulu — tiap
 ambang di sana punya alasan yang ditulis, dan beberapa di antaranya
 kontra-intuitif justru karena versi intuitifnya sudah dicoba dan gagal.
+
+---
+
+## Batas handover ke codex
+
+Ditulis 2026-08-02 setelah sesi 2. Ini jawaban atas pertanyaan "sampai tahap
+mana bisa di-handover".
+
+### Sudah selesai dan tidak perlu disentuh codex
+
+`shared/` sudah lengkap untuk Stage 0 dan sudah dipakai sebagai fondasi Stage 1.
+Classifier, mapping, config, dan state machine punya 117 test dan setiap ambang
+punya alasan tertulis. **Jangan refactor bagian ini tanpa menjalankan
+`fairness.test.ts` dan `classifier.test.ts` lebih dulu** — tiga kali di dua sesi
+ini, perubahan yang terlihat menyederhanakan justru merusak satu keluarga spell
+secara diam-diam.
+
+### Blocker yang bukan pekerjaan kode
+
+**Playtest 10+ penguji manusia.** Ini satu-satunya yang menghalangi Stage 0
+dinyatakan lulus, dan tidak ada baris kode yang bisa menggantikannya. Tracker
+discovery di panel kanan sudah mengukur exit criteria secara langsung. Yang
+perlu dicatat per penguji: berapa lama sampai cast pertama, keluarga mana yang
+ditemukan, keluarga mana yang macet, dan berapa ronde yang memicu keluhan
+"gambar saya tidak terbaca" (target PRD §19: di bawah 10%).
+
+Jalankan ini **sebelum** menyentuh Stage 1. Kalau ternyata 30% penguji tidak
+bisa membuat Spiral, itu mengubah desain classifier — dan kalau Stage 1 sudah
+dibangun di atasnya, perubahan itu jadi jauh lebih mahal.
+
+### Titik handover yang bersih untuk codex
+
+Tiga pekerjaan berikut independen satu sama lain dan tidak menyentuh file yang
+sama, jadi aman dikerjakan paralel atau diserahkan penuh:
+
+1. **Spike physics library** (PRD §15 mewajibkan spike sebelum memilih).
+   Deliverable: dokumen pendek + demo kecil, bukan integrasi. Kriteria:
+   determinisme lintas mesin dengan fixed timestep, jalan di Node untuk server
+   authoritative, ukuran bundle. Kandidat: Rapier2D (Rust/WASM) vs planck.js.
+   **Tidak menyentuh file mana pun yang ada sekarang.**
+
+2. **Instrumentasi playtest.** Catat hasil tiap stroke ke JSON yang bisa
+   di-export dari Spell Lab: keluarga, confidence, waktu, apakah jatuh ke Wisp.
+   Ini yang mengubah playtest dari kesan jadi angka. Menyentuh
+   `client/src/ui/spellLab.ts` saja.
+
+3. **Asset provenance register** (PRD §16). Belum ada karena belum ada aset,
+   tapi wajib ada **sebelum** aset pertama masuk build. Folder donor
+   `D:\Projects\DreamyExpedition` dan `D:\Projects\three` belum pernah diakses
+   di kedua sesi ini. Murni dokumen.
+
+### Yang sebaiknya belum diserahkan
+
+**Stage 1 (Physics Toy) belum siap di-handover.** Bukan karena sulit, tapi
+karena bentuknya masih tergantung dua hal yang belum ada: hasil spike physics
+dan hasil playtest. Menyerahkannya sekarang berarti codex menebak keduanya.
+
+Kalau spike selesai dan playtest lulus, Stage 1 jadi handover yang bersih:
+`shared/src/match/state.ts` sudah menyediakan Wobble, scoring, dan fase; yang
+kurang tinggal simulasi dan integrasinya.
