@@ -10,6 +10,9 @@
 /** The five spell families. PRD §8. */
 export type SpellFamily = 'stroke' | 'loop' | 'spiral' | 'angular' | 'wisp';
 
+/** Internal geometric primitives used by wild spell composition. */
+export type MotifKind = 'thrust' | 'loop' | 'spiral' | 'bounce' | 'unstable' | 'wisp';
+
 /** Match phases within a single Turn. PRD §6. */
 export type Phase = 'setup' | 'draw' | 'reveal' | 'resolve' | 'score';
 
@@ -286,6 +289,44 @@ export interface AssistConfig {
   readonly confidenceBonus: number;
 }
 
+export interface MotifPhysicsConfig {
+  /** Relative claim on the conserved strength budget. */
+  readonly strengthWeight: number;
+  /** Absolute ceiling; notably keeps the Wisp fallback weak. */
+  readonly maxStrength: number;
+  /** Local drawn size is multiplied by this before radius clamping. */
+  readonly radiusScale: number;
+  /** Local drawn size is multiplied by this before mass clamping. */
+  readonly massScale: number;
+  readonly lifetimeMs: number;
+}
+
+/** Tunables for DESIGN-SPELL-COMPOSITION.md. */
+export interface CompositionConfig {
+  readonly maxMotifs: number;
+  readonly minLoopSpanFraction: number;
+  readonly minOpenRunFraction: number;
+  readonly minMotifSize: number;
+  readonly spiralRadiusTrendMin: number;
+  readonly spiralMinRevolutions: number;
+  readonly unstableIntersectionCount: number;
+  readonly unstableWindowFraction: number;
+  readonly intersectionEpsilon: number;
+  /** Near-crossing tolerance measured in average resampled point gaps. */
+  readonly intersectionProximitySteps: number;
+  readonly spiralScanStride: number;
+  readonly spreadMs: number;
+  readonly strengthPerInk: number;
+  readonly minRadius: number;
+  readonly maxRadius: number;
+  readonly minMass: number;
+  readonly maxMass: number;
+  readonly forceMediumFraction: number;
+  readonly forceHeavyFraction: number;
+  readonly headingDeadZone: number;
+  readonly motif: Readonly<Record<MotifKind, MotifPhysicsConfig>>;
+}
+
 export interface GameConfig {
   readonly phases: PhaseConfig;
   readonly ink: InkConfig;
@@ -299,5 +340,6 @@ export interface GameConfig {
   readonly simulation: SimulationConfig;
   readonly classifier: ClassifierThresholds;
   readonly assist: Readonly<Record<AssistLevel, AssistConfig>>;
+  readonly composition: CompositionConfig;
   readonly spells: Readonly<Record<SpellFamily, SpellDefinition>>;
 }

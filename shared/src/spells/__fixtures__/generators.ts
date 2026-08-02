@@ -222,3 +222,43 @@ export function dot(center: Vec2, options: StrokeOptions = {}): Vec2[] {
     y: center.y,
   }));
 }
+
+/** A straight approach followed by a closed loop at the end. */
+export function lineWithLoopAtEnd(options: StrokeOptions = {}): Vec2[] {
+  const approach = line({ x: -0.9, y: -0.16 }, { x: 0.3, y: -0.16 }, { samples: 34 });
+  const loop = arc({ x: 0.3, y: 0 }, 0.16, -Math.PI / 2, TAU, { samples: 48 });
+  return jitter([...approach, ...loop.slice(1)], options.noise ?? 0, 1.2, options.seed ?? 1);
+}
+
+/** A closed loop followed by a straight exit. */
+export function loopThenTail(options: StrokeOptions = {}): Vec2[] {
+  const loop = arc({ x: -0.28, y: 0 }, 0.18, -Math.PI / 2, TAU, { samples: 48 });
+  const tail = line({ x: -0.28, y: -0.18 }, { x: 0.68, y: 0.12 }, { samples: 30 });
+  return jitter([...loop, ...tail.slice(1)], options.noise ?? 0, 1.3, options.seed ?? 1);
+}
+
+/** Three deliberate corners leading into a two-turn expanding spiral. */
+export function zigzagIntoSpiral(options: StrokeOptions = {}): Vec2[] {
+  const zig = polyline(
+    [
+      { x: -0.75, y: -0.2 },
+      { x: -0.58, y: 0.02 },
+      { x: -0.4, y: -0.2 },
+      { x: -0.22, y: 0.02 },
+    ],
+    { samples: 36 },
+  );
+  const coil = spiral({ x: 0.12, y: 0.02 }, 0.05, 0.3, 2.05, { samples: 72 });
+  return jitter([...zig, ...coil], options.noise ?? 0, 1.4, options.seed ?? 1);
+}
+
+/** A compact pentagram: several self-intersections in a short stroke span. */
+export function denseCrossing(options: StrokeOptions = {}): Vec2[] {
+  const center = { x: 0, y: 0 };
+  const vertices = Array.from({ length: 5 }, (_, index) => {
+    const angle = -Math.PI / 2 + (TAU * index) / 5;
+    return { x: center.x + Math.cos(angle) * 0.34, y: center.y + Math.sin(angle) * 0.34 };
+  });
+  const order = [0, 2, 4, 1, 3, 0];
+  return polyline(order.map((index) => vertices[index]!), { samples: 96, ...options });
+}

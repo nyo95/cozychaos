@@ -6,6 +6,151 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 8: Review Claude atas V2 + fix property-8
+
+**Pelaksana:** Claude (review + fix), Codex (implementasi sesi 7)
+
+Verifikasi independen atas sesi 7: 139 test lulus, typecheck dan build bersih,
+audit 0. Kontrak dihormati — `composeStroke` hanya memakai pembacaan canonical,
+strength dibatasi satu budget dari ink, tiap motif punya cap. Bagus.
+
+**Tapi sifat 8 — sifat paling penting di kontrak — dilanggar, dan test codex
+melewatkannya.** Test codex hanya menguji stabilitas pada garis lurus (satu
+motif, force stabil secara konstruksi). Saya probe pada zigzag: **force band
+berganti 18 dari 40 kali** di bawah tremor kecil. Itu persis kegagalan
+"commitment jadi lempar koin" yang sifat 8 ada untuk mencegahnya.
+
+Akar masalah: motif, ink, dan total strength semuanya stabil (jitter ~1%).
+Satu-satunya masalah, `forceMediumFraction: 0.36` duduk **tepat** di tempat
+zigzag mendarat secara alami (0.357–0.362). Bucket boundary keras apa pun akan
+punya bentuk yang duduk di atasnya.
+
+Perbaikan dua bagian:
+
+1. **Force sekarang dihitung dari committed-Ink, bukan dari total strength.**
+   Committed Ink = `inkCost(arcLength)`, deterministik dan stabil, dan untuk
+   stroke apa pun yang terbaca ia sebanding dengan strength — jadi tetap
+   "kekuatan kasar", hanya diukur dari kuantitas yang stabil. Recipe wisp-only
+   tetap dipatok Light berapa pun ink-nya, karena strength aktualnya memang
+   dibatasi rendah. Ini **amandemen kontrak §6** yang saya buat sebagai design
+   owner; alasannya ditulis di kode dan di kontrak.
+2. **Batas band dipindah ke celah antar-cluster, bukan di atasnya.** Diukur:
+   bentuk Light mendarat ≤0.36, Medium 0.51–0.61, Heavy ≥0.73. Batas baru 0.44
+   dan 0.67 duduk di celah; tiap fixture ≥0.05 dari batas, ~10x margin atas
+   jitter.
+
+**Test diperkuat:** sifat 8 sekarang menguji zigzag, circle, line+loop,
+loop+tail, dan spiral — masing-masing 40 percobaan bertremor. Ini test yang
+seharusnya ada dari awal; garis lurus tidak akan pernah menangkap cacat ini.
+Setelah fix, nol flip pada kelima bentuk. Total 140 test.
+
+**Catatan proses untuk Codex:** kerjaanmu bagus dan verifikasinya jujur, tapi
+tiga hal berulang tiap sesi. (a) Kerjaan ditinggal tidak ter-commit — aku
+commit untukmu lagi. (b) Test sifat kritis hanya menutupi kasus termudah;
+kalau sebuah sifat disebut "paling penting" di kontrak, testnya harus menyerang
+kasus tersulit, bukan yang paling nyaman lulus. (c) Deviasi yang kamu catat di
+changelog bagus — teruskan itu.
+
+---
+
+## 2026-08-02 — Sesi 7: Spell Lab V2 wild composition
+
+**Pelaksana:** Codex
+
+**Kontrak:** `DESIGN-SPELL-COMPOSITION.md` §10 butir 1–5.
+
+Vertical slice V2 selesai: satu stroke sekarang menjadi beberapa motif berurutan,
+dikomposisi menjadi recipe dengan konservasi Ink, ditampilkan sebagai preview
+kasar, dan dicatat sebagai telemetry lokal yang dapat diekspor.
+
+### 1. Segmentasi motif
+
+Ditambahkan `shared/src/spells/motifs.ts` dengan primitive internal `thrust`,
+`loop`, `spiral`, `bounce`, `unstable`, dan `wisp`. Perpotongan sendiri menjadi
+sumber utama loop span; sisa stroke menjadi open run dengan thrust dan bounce.
+Jumlah hasil dibatasi `maxMotifs: 5`.
+
+Fixture kontrak sekarang mencakup garis, garis→gelung, gelung→ekor, zigzag,
+zigzag→spiral, spiral murni, pentagram padat, dan titik kecil.
+
+### 2. Recipe dan konservasi Ink
+
+Ditambahkan `shared/src/spells/composition.ts`. `composeStroke()` selalu memakai
+pembacaan canonical Standard sehingga Standard dan High menghasilkan recipe
+identik angka per angka. Kekuatan komponen berbagi satu budget yang dibatasi
+`inkCommitted × strengthPerInk`; menambah motif tidak menciptakan kekuatan
+gratis. Aktivasi mengikuti posisi motif di sepanjang stroke.
+
+Preview hanya memuat arah 8 penjuru, force band tiga tingkat, ikon urutan motif,
+serta Ink committed/reserved. Label force dihitung dari kekuatan aktual, bukan
+sekadar Ink yang dibakar.
+
+### 3. Telemetry wajib
+
+Ditambahkan `StrokeTelemetry` dan export JSON berversi. Semua field kontrak
+dicatat saat commit: session, index, motif, pembagian Ink, summary, draw time,
+point count, dan assist.
+
+Export juga menyimpan **raw captured points**. Ini tambahan sengaja terhadap
+schema kontrak: tanpa titik asli, motif yang gagal terdeteksi tidak dapat
+diputar ulang atau digunakan untuk retuning; telemetry hanya akan menyimpan
+opini algoritma, bukan gambar pemain.
+
+Tidak ada upload otomatis. Data tetap lokal sampai tombol export ditekan.
+
+### 4. Spell Lab V2 UI
+
+Panel `Discovered 0/4`, nama Arc Bolt/Bubble Ward/Vortex/Prism Shard, confidence,
+dan parameter trajectory detail dihapus dari UI. Canvas hanya menunjukkan
+arah kasar dan bobot; detail pantulan/collision tetap menjadi chaos saat
+Resolve. Sidebar menampilkan ikon motif, Ink commitment, Ward Reserve, jumlah
+stroke sesi, dan tombol export.
+
+### Deviasi dan bug yang ditemukan saat implementasi
+
+1. **Spiral murni tidak self-intersect.** Kontrak sekaligus mensyaratkan
+   self-intersection dan fixture spiral dua putaran. Implementasi memakai
+   self-intersection sebagai aturan utama, dengan fallback winding + radial
+   trend khusus spiral yang tidak memiliki perpotongan.
+2. **Gelung manual tidak selalu berpotongan tepat.** Browser test menunjukkan
+   smoothing dapat memisahkan seam beberapa piksel. Near-intersection tolerance
+   berbasis jarak antar-sample ditambahkan. Hanya intersection matematis yang
+   boleh memicu `unstable`, sehingga toleransi seam tidak mengubah loop biasa
+   menjadi chaos.
+3. **Wisp sempat mendapat seluruh strength budget.** Bobot relatif tidak cukup
+   ketika Wisp menjadi satu-satunya komponen. Semua motif sekarang memiliki cap
+   data-driven; Wisp tetap lemah walau pemain membakar 100 Ink, dan preview
+   melaporkannya sebagai Light, bukan Heavy.
+
+### Kontrak test dan verifikasi
+
+| Cek | Hasil |
+|---|---|
+| Deteksi 8 fixture motif | lulus |
+| Sifat 1–8 (monotonisitas hingga stability) | lulus |
+| Fairness Standard vs High recipe | identik |
+| Telemetry + JSON + raw replay points | lulus |
+| `npm test` | **139 passed** dalam 9 file |
+| `npm run typecheck` | bersih |
+| `npm run build` | bersih |
+| `npm audit` | **0 vulnerabilities** |
+| Browser: manual thrust→loop | 2 ikon berurutan, arah East |
+| Browser: Wisp + full Ink | Light, 100 committed, 0 reserved |
+| Browser: export | enabled setelah commit, tanpa console error |
+
+### Keputusan yang masih milik Claude
+
+Draw Assist sengaja menghasilkan recipe yang identik sesuai sifat 6. Akibatnya,
+toggle Assist tidak memiliki efek yang terlihat pada V2 saat ini. Claude perlu
+memutuskan apakah toggle dihapus sampai ada fungsi non-physics yang nyata, atau
+kontrak fairness direvisi agar assist boleh mengubah deteksi motif tanpa
+mengubah parameter fisik dari motif yang sama.
+
+Butir §10 berikutnya belum dikerjakan: revisi PRD oleh Claude, Network Risk
+Spike, dan physics-library spike. Physics Toy/Ward Reserve aktual juga belum ada.
+
+---
+
 ## 2026-08-02 — Sesi 6: Arah dikunci pemilik produk + kontrak komposisi
 
 **Pelaksana:** Claude

@@ -1,5 +1,5 @@
-import { CONFIG, TAU, type SpellInstance, type Vec2 } from '@cozy/shared';
-import { PALETTE, SPELL_COLOURS, withAlpha } from './palette.js';
+import { CONFIG, TAU, type Heading, type SpellRecipe, type Vec2 } from '@cozy/shared';
+import { PALETTE, withAlpha } from './palette.js';
 import { toPixels, toScreen, type Viewport } from './viewport.js';
 
 /**
@@ -19,7 +19,7 @@ import { toPixels, toScreen, type Viewport } from './viewport.js';
 export interface SceneState {
   readonly casterPosition: Vec2;
   readonly stroke: readonly Vec2[];
-  readonly spell: SpellInstance | null;
+  readonly recipe: SpellRecipe | null;
   /** Drives idle motion in the preview. Milliseconds since load. */
   readonly timeMs: number;
 }
@@ -32,8 +32,8 @@ export function drawScene(
   drawSky(ctx, viewport);
   drawIsland(ctx, viewport);
   drawWizard(ctx, viewport, state.casterPosition);
-  if (state.spell) drawSpellPreview(ctx, viewport, state.spell, state.timeMs);
-  drawStroke(ctx, viewport, state.stroke, state.spell);
+  if (state.recipe) drawCoarsePreview(ctx, viewport, state.casterPosition, state.recipe, state.timeMs);
+  drawStroke(ctx, viewport, state.stroke);
 }
 
 function drawSky(ctx: CanvasRenderingContext2D, viewport: Viewport): void {
@@ -153,10 +153,9 @@ function drawStroke(
   ctx: CanvasRenderingContext2D,
   viewport: Viewport,
   stroke: readonly Vec2[],
-  spell: SpellInstance | null,
 ): void {
   if (stroke.length < 2) return;
-  const colour = spell ? SPELL_COLOURS[spell.family] : PALETTE.ink;
+  const colour = PALETTE.ink;
 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -181,78 +180,58 @@ function drawStroke(
   }
 }
 
-/**
- * Where the spell would appear and what it would do.
- *
- * Each family gets a distinct silhouette, not just a distinct colour — PRD §12
- * requires shape and sound to carry the identity so colour is never
- * load-bearing.
- */
-function drawSpellPreview(
+/** Rough direction + commitment only. Detailed trajectory is Resolve's chaos. */
+function drawCoarsePreview(
   ctx: CanvasRenderingContext2D,
   viewport: Viewport,
-  spell: SpellInstance,
+  casterPosition: Vec2,
+  recipe: SpellRecipe,
   timeMs: number,
 ): void {
-  const colour = SPELL_COLOURS[spell.family];
-  const origin = toScreen(viewport, spell.origin);
-  const radius = Math.max(toPixels(viewport, spell.radius), 4);
-  const pulse = 0.85 + 0.15 * Math.sin(timeMs / 320);
-
+  const direction = headingVector(recipe.summary.heading);
+  const origin = toScreen(viewport, casterPosition);
+  const forceLength = recipe.summary.force === 'berat' ? 0.42 : recipe.summary.force === 'sedang' ? 0.3 : 0.2;
+  const length = toPixels(viewport, forceLength);
+  const pulse = 0.75 + 0.25 * Math.sin(timeMs / 340);
   ctx.save();
+  ctx.strokeStyle = withAlpha(PALETTE.ink, 0.65);
+  ctx.fillStyle = withAlpha(PALETTE.ink, 0.8);
+  ctx.lineWidth = 2;
 
-  if (spell.family === 'loop') {
-    ctx.strokeStyle = withAlpha(colour, 0.9);
-    ctx.fillStyle = withAlpha(colour, 0.14);
-    ctx.lineWidth = 2.5;
+  if (recipe.summary.heading === 'none') {
     ctx.beginPath();
-    ctx.arc(origin.x, origin.y, radius * pulse, 0, TAU);
-    ctx.fill();
-    ctx.stroke();
-  } else if (spell.family === 'spiral') {
-    // Concentric arcs turning the way the player wound the stroke.
-    ctx.strokeStyle = withAlpha(colour, 0.8);
-    ctx.lineWidth = 2;
-    const direction = spell.chirality === 0 ? 1 : spell.chirality;
-    for (let ring = 1; ring <= 3; ring++) {
-      const r = (radius * ring) / 3;
-      const offset = (timeMs / 500) * direction + ring;
-      ctx.beginPath();
-      ctx.arc(origin.x, origin.y, r, offset, offset + TAU * 0.62);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = withAlpha(colour, 0.25);
-    ctx.beginPath();
-    ctx.arc(origin.x, origin.y, radius, 0, TAU);
+    ctx.arc(origin.x, origin.y - toPixels(viewport, 0.12), toPixels(viewport, 0.06) * pulse, 0, TAU);
     ctx.stroke();
   } else {
-    // Projectile families: show the launch heading and, for Prism Shard, the
-    // bounces the corners bought.
-    const arrowLength = radius * 5;
     const tip = {
-      x: origin.x + spell.direction.x * arrowLength,
-      y: origin.y - spell.direction.y * arrowLength,
+      x: origin.x + direction.x * length,
+      y: origin.y - direction.y * length,
     };
-    ctx.strokeStyle = withAlpha(colour, 0.85);
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([7, 6]);
+    ctx.setLineDash([5, 7]);
     ctx.beginPath();
     ctx.moveTo(origin.x, origin.y);
     ctx.lineTo(tip.x, tip.y);
     ctx.stroke();
     ctx.setLineDash([]);
-
-    ctx.fillStyle = withAlpha(colour, 0.95);
     ctx.beginPath();
-    ctx.arc(tip.x, tip.y, radius * pulse, 0, TAU);
+    ctx.arc(tip.x, tip.y, 3 + pulse * 2, 0, TAU);
     ctx.fill();
-
-    for (let i = 0; i < spell.bounces; i++) {
-      ctx.beginPath();
-      ctx.arc(origin.x + (i + 1) * 9 - 4, origin.y - radius * 3, 2.6, 0, TAU);
-      ctx.fill();
-    }
   }
-
   ctx.restore();
+}
+
+function headingVector(heading: Heading): Vec2 {
+  const diagonal = Math.SQRT1_2;
+  const vectors: Readonly<Record<Heading, Vec2>> = {
+    N: { x: 0, y: 1 },
+    NE: { x: diagonal, y: diagonal },
+    E: { x: 1, y: 0 },
+    SE: { x: diagonal, y: -diagonal },
+    S: { x: 0, y: -1 },
+    SW: { x: -diagonal, y: -diagonal },
+    W: { x: -1, y: 0 },
+    NW: { x: -diagonal, y: diagonal },
+    none: { x: 0, y: 0 },
+  };
+  return vectors[heading];
 }

@@ -191,7 +191,17 @@ menjadi lempar koin.
 interface RecipeSummary {
   /** Arah dominan, dibulatkan ke 8 penjuru. */
   readonly heading: 'N'|'NE'|'E'|'SE'|'S'|'SW'|'W'|'NW'|'none';
-  /** Kekuatan kasar. Tiga tingkat saja. */
+  /**
+   * Kekuatan kasar. Tiga tingkat saja.
+   *
+   * AMANDEMEN (sesi 8): dihitung dari **committed-Ink**, bukan dari total
+   * strength komponen. Total strength jitter ~1% karena cap per-motif, dan
+   * sebuah zigzag mendarat tepat di batas band sehингga readout-nya berkedip di
+   * bawah tremor — melanggar sifat 8. Committed Ink stabil dan, untuk stroke
+   * yang terbaca, sebanding dengan strength. Recipe wisp-only dipatok `ringan`.
+   * Batas band diletakkan di celah antar-cluster (0.44 dan 0.67), bukan di
+   * atasnya.
+   */
   readonly force: 'ringan' | 'sedang' | 'berat';
   /** Urutan motif sebagai ikon, bukan nama. */
   readonly shape: readonly MotifKind[];

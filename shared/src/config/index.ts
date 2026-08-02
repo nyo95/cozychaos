@@ -169,5 +169,44 @@ export const CONFIG: GameConfig = Object.freeze({
     }),
   }),
 
+  // DESIGN-SPELL-COMPOSITION.md — wild strokes compose bounded primitives.
+  composition: Object.freeze({
+    maxMotifs: 5,
+    minLoopSpanFraction: 0.08,
+    minOpenRunFraction: 0.055,
+    minMotifSize: 0.045,
+    spiralRadiusTrendMin: 0.34,
+    spiralMinRevolutions: 1.15,
+    unstableIntersectionCount: 3,
+    unstableWindowFraction: 0.5,
+    intersectionEpsilon: 1e-7,
+    intersectionProximitySteps: 1.35,
+    spiralScanStride: 4,
+    spreadMs: 1250,
+    // A full 100-Ink commitment owns a strength budget of 2.5.
+    strengthPerInk: 0.025,
+    minRadius: 0.035,
+    maxRadius: 0.38,
+    minMass: 0.2,
+    maxMass: 1.8,
+    // Force bands read from committed-Ink fraction (see forceBand), so these
+    // edges sit in the *gaps* between where real strokes cluster, not on them.
+    // Measured clusters: Light shapes land ≤0.36, Medium 0.51–0.61, Heavy ≥0.73.
+    // A zigzag commits ~0.36 exactly, so an edge at 0.36 made its readout flip
+    // under tremor (property 8). Every fixture now sits ≥0.05 clear of an edge,
+    // roughly a 10x margin over observed jitter.
+    forceMediumFraction: 0.44,
+    forceHeavyFraction: 0.67,
+    headingDeadZone: 0.08,
+    motif: Object.freeze({
+      thrust: Object.freeze({ strengthWeight: 1.0, maxStrength: 2.5, radiusScale: 0.18, massScale: 1.15, lifetimeMs: 2300 }),
+      loop: Object.freeze({ strengthWeight: 0.9, maxStrength: 2.1, radiusScale: 0.72, massScale: 1.45, lifetimeMs: 3600 }),
+      spiral: Object.freeze({ strengthWeight: 1.05, maxStrength: 2.35, radiusScale: 0.8, massScale: 0.35, lifetimeMs: 3000 }),
+      bounce: Object.freeze({ strengthWeight: 0.72, maxStrength: 1.25, radiusScale: 0.2, massScale: 1.3, lifetimeMs: 2600 }),
+      unstable: Object.freeze({ strengthWeight: 1.15, maxStrength: 2.2, radiusScale: 0.55, massScale: 0.85, lifetimeMs: 1800 }),
+      wisp: Object.freeze({ strengthWeight: 0.35, maxStrength: 0.25, radiusScale: 0.14, massScale: 0.55, lifetimeMs: 1800 }),
+    }),
+  }),
+
   spells: SPELLS,
 });

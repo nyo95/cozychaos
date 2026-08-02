@@ -1,80 +1,81 @@
 import {
   CONFIG,
-  classifyStroke,
-  createRandom,
-  deriveSeed,
-  mapToSpell,
+  composeStroke,
   type AssistLevel,
-  type Classification,
-  type SpellFamily,
-  type SpellInstance,
+  type ForceBand,
+  type Heading,
+  type MotifKind,
+  type StrokeComposition,
   type Vec2,
 } from '@cozy/shared';
 import { StrokeCapture } from '../drawing/strokeCapture.js';
 import { attachPointerStream } from '../input/pointer.js';
 import { drawScene } from '../rendering/arena.js';
-import { SPELL_COLOURS } from '../rendering/palette.js';
+import { StrokeTelemetry } from '../telemetry/strokeTelemetry.js';
 import { createViewport, toArena, type Viewport } from '../rendering/viewport.js';
 
-/**
- * Stage 0 — the Spell Lab. PRD §18.
- *
- * "Satu layar offline untuk menggambar dan melihat klasifikasi serta parameter
- * spell. Lulus jika: minimal 90% pemain uji dapat menghasilkan empat keluarga
- * spell setelah tutorial singkat, tanpa bantuan developer."
- *
- * The discovery tracker on the right is not decoration — it is the exit
- * criterion made visible. A tester either lights up all four families or does
- * not, and the screen says which, so the gate can be judged by watching rather
- * than by asking. The hints stay deliberately terse: if a player needs the
- * paragraph, the classifier is what needs fixing, not the copy.
- */
-
-/** Where the wizard stands. Spells from open strokes launch from here (A-05). */
 const CASTER_POSITION: Vec2 = { x: -0.55, y: 0.16 };
 
-const FAMILY_HINTS: Readonly<Record<SpellFamily, string>> = {
-  stroke: 'a straight line',
-  loop: 'a closed ring',
-  spiral: 'wind it inward',
-  angular: 'sharp zigzag',
-  wisp: 'anything else',
+const MOTIF_ICONS: Readonly<Record<MotifKind, string>> = {
+  thrust: '➜',
+  loop: '○',
+  spiral: '◎',
+  bounce: '◇',
+  unstable: '✦',
+  wisp: '·',
 };
 
-const DISCOVERABLE: readonly SpellFamily[] = ['stroke', 'loop', 'spiral', 'angular'];
+const HEADING_LABELS: Readonly<Record<Heading, string>> = {
+  N: 'North',
+  NE: 'North-east',
+  E: 'East',
+  SE: 'South-east',
+  S: 'South',
+  SW: 'South-west',
+  W: 'West',
+  NW: 'North-west',
+  none: 'Anchored',
+};
+
+const FORCE_LABELS: Readonly<Record<ForceBand, string>> = {
+  ringan: 'Light',
+  sedang: 'Medium',
+  berat: 'Heavy',
+};
 
 interface Elements {
   readonly canvas: HTMLCanvasElement;
   readonly hint: HTMLElement;
   readonly inkFill: HTMLElement;
   readonly inkLabel: HTMLElement;
-  readonly family: HTMLElement;
-  readonly blurb: HTMLElement;
-  readonly confidenceFill: HTMLElement;
-  readonly confidenceLabel: HTMLElement;
-  readonly params: HTMLElement;
-  readonly families: HTMLElement;
-  readonly familiesNote: HTMLElement;
-  readonly discoveredCount: HTMLElement;
+  readonly summaryTitle: HTMLElement;
+  readonly summaryBlurb: HTMLElement;
+  readonly summaryHeading: HTMLElement;
+  readonly summaryForce: HTMLElement;
+  readonly motifSequence: HTMLElement;
+  readonly committedFill: HTMLElement;
+  readonly reservedFill: HTMLElement;
+  readonly committedLabel: HTMLElement;
+  readonly reservedLabel: HTMLElement;
+  readonly recordCount: HTMLElement;
+  readonly exportButton: HTMLButtonElement;
   readonly assist: HTMLSelectElement;
 }
 
+/** Spell Lab V2: free composition, coarse preview, and local telemetry. */
 export class SpellLab {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly capture = new StrokeCapture();
-  private readonly discovered = new Set<SpellFamily>();
+  private readonly telemetry = new StrokeTelemetry(createSessionId());
   private viewport: Viewport;
-  private classification: Classification | null = null;
-  private spell: SpellInstance | null = null;
+  private composition: StrokeComposition | null = null;
   private assist: AssistLevel = 'standard';
   private strokeIndex = 0;
   private frame = 0;
-  /** Set when the stroke grew; the render loop consumes it. */
   private previewDirty = false;
-  /** True once the player has released their first stroke. */
   private hasCommitted = false;
-  /** Prevents ink exhaustion and the later pointer-up from committing twice. */
   private currentStrokeCommitted = false;
+  private strokeStartedAt = 0;
 
   constructor(private readonly elements: Elements) {
     const context = elements.canvas.getContext('2d');
@@ -82,16 +83,13 @@ export class SpellLab {
     this.ctx = context;
     this.viewport = createViewport(1, 1);
 
-    this.renderFamilyList();
     this.resize();
     window.addEventListener('resize', () => this.resize());
-
     elements.assist.addEventListener('change', () => {
       this.assist = elements.assist.value === 'high' ? 'high' : 'standard';
-      // Re-read the stroke already on screen so the effect of the setting is
-      // immediately visible rather than deferred to the next drawing.
       if (this.hasCommitted) this.evaluate(this.capture.stroke, true);
     });
+    elements.exportButton.addEventListener('click', () => this.exportTelemetry());
 
     attachPointerStream(
       elements.canvas,
@@ -108,52 +106,33 @@ export class SpellLab {
       },
     );
 
+    this.renderReadout();
     this.loop(0);
   }
 
   private onStrokeStart(point: Vec2): void {
     this.capture.begin(point);
     this.currentStrokeCommitted = false;
-    this.classification = null;
-    this.spell = null;
+    this.strokeStartedAt = performance.now();
+    this.composition = null;
     this.elements.hint.style.opacity = '0';
   }
 
-  /**
-   * Records the sample and marks the preview stale — it does not classify.
-   *
-   * Classification is deferred to the next animation frame. A pointer move can
-   * fire many times per frame (a 1000 Hz mouse with coalesced events fires
-   * dozens), and running the full pipeline on each one did work that was
-   * thrown away microseconds later by the next sample, stuttering the very
-   * line the player is drawing. One classification per frame is the most the
-   * display can show anyway.
-   */
   private onStrokeMove(point: Vec2): void {
     if (!this.capture.isDrawing) return;
     this.capture.extend(point);
     this.updateInk();
     this.previewDirty = true;
-
-    // Ink ran out mid-segment: the capture ended itself, so commit now.
     if (!this.capture.isDrawing) this.commitStroke();
   }
 
-  /**
-   * Finishes a pointer-driven stroke at the release coordinate.
-   *
-   * Pointer-up can be the newest sample, especially for short touch gestures.
-   * It must be captured before final classification or aim will stop at the
-   * previous move event. If ink already auto-finished the stroke, the commit
-   * guard makes the later pointer-up a no-op.
-   */
   private onStrokeEnd(finalPoint: Vec2): void {
     if (this.currentStrokeCommitted) return;
     if (this.capture.isDrawing) this.capture.extend(finalPoint);
+    this.updateInk();
     this.commitStroke();
   }
 
-  /** Commits exactly once, regardless of whether release or ink ended it. */
   private commitStroke(): void {
     if (this.currentStrokeCommitted) return;
     this.currentStrokeCommitted = true;
@@ -161,162 +140,96 @@ export class SpellLab {
     this.previewDirty = false;
     this.hasCommitted = true;
     this.evaluate(stroke, true);
-    if (this.classification !== null) this.recordDiscovery(this.classification.family);
+
+    if (this.composition !== null) {
+      this.telemetry.record({
+        index: this.strokeIndex,
+        motifs: this.composition.motifs,
+        summary: this.composition.recipe.summary,
+        drawMs: performance.now() - this.strokeStartedAt,
+        points: stroke,
+        assist: this.assist,
+      });
+      this.renderTelemetryStatus();
+    }
     this.strokeIndex++;
   }
 
-  /**
-   * Classifies and maps a stroke. Pure inputs in, display out.
-   *
-   * PRD §21 requires all randomness to be seeded. The per-stroke seed is
-   * derived from a fixed lab seed and the stroke index, so drawing the same
-   * shape twice in a row produces the same variance and a tester comparing two
-   * attempts is comparing their drawing, not the dice.
-   */
   private evaluate(stroke: readonly Vec2[], commit: boolean): void {
-    /**
-     * A released stroke always produces a spell — even a single tap, which
-     * becomes an Arcane Wisp.
-     *
-     * PRD §7.1 and §8.5 make this the core promise: "Setiap coretan menjadi
-     * sihir. Tidak ada gambar yang sia-sia." Showing "Draw something" instead
-     * quietly breaks it, and does so precisely for the smallest, most
-     * hesitant marks — the ones a new player makes first. Only the *live*
-     * preview may show nothing, and only before there is a shape to read.
-     */
     if (!commit && stroke.length < CONFIG.strokeLimits.minPoints) {
-      this.classification = null;
-      this.spell = null;
+      this.composition = null;
       this.renderReadout();
       return;
     }
-
-    const classification = classifyStroke(stroke, { assist: this.assist });
-    const random = createRandom(deriveSeed(LAB_SEED, `stroke:${this.strokeIndex}`));
-    const spell = mapToSpell(classification, {
-      casterPosition: CASTER_POSITION,
-      seededUnit: random.next(),
-    });
-
-    this.classification = classification;
-    this.spell = spell;
+    this.composition = composeStroke(stroke, { assist: this.assist });
     this.renderReadout();
   }
 
-  private recordDiscovery(family: SpellFamily): void {
-    if (!DISCOVERABLE.includes(family) || this.discovered.has(family)) return;
-    this.discovered.add(family);
-    this.renderFamilyList();
-  }
-
   private updateInk(): void {
-    const fraction = this.capture.inkFraction;
-    this.elements.inkFill.style.width = `${(fraction * 100).toFixed(1)}%`;
-    this.elements.inkFill.classList.toggle('is-low', fraction < CONFIG.ink.warnFraction);
+    const reserved = this.capture.inkFraction;
+    this.elements.inkFill.style.width = `${(reserved * 100).toFixed(1)}%`;
+    this.elements.inkFill.classList.toggle('is-low', reserved < CONFIG.ink.warnFraction);
     this.elements.inkLabel.textContent = this.capture.exhausted
-      ? 'Out of ink'
-      : `Ink ${Math.round(fraction * 100)}%`;
+      ? 'No reserve'
+      : `Reserve ${Math.round(reserved * 100)}%`;
   }
 
   private renderReadout(): void {
-    const { family, blurb, confidenceFill, confidenceLabel, params } = this.elements;
-
-    if (this.classification === null || this.spell === null) {
-      family.textContent = this.hasCommitted ? 'Keep drawing' : 'Draw something';
-      family.style.color = '';
-      blurb.textContent = 'Any single line becomes a spell.';
-      confidenceFill.style.width = '0%';
-      confidenceLabel.textContent = '—';
-      params.replaceChildren();
+    const elements = this.elements;
+    if (this.composition === null) {
+      elements.summaryTitle.textContent = this.hasCommitted ? 'Draw another spell' : 'Draw freely';
+      elements.summaryBlurb.textContent = 'Your geometry becomes force. What you do not spend stays in reserve.';
+      elements.summaryHeading.textContent = '—';
+      elements.summaryForce.textContent = '—';
+      elements.motifSequence.replaceChildren();
+      this.renderInkSplit(0, CONFIG.ink.total);
       return;
     }
 
-    const spell = this.spell;
-    const definition = CONFIG.spells[spell.family];
-    const colour = SPELL_COLOURS[spell.family];
-
-    family.textContent = definition.name;
-    family.style.color = colour;
-    blurb.textContent = definition.blurb;
-
-    const confidence = this.classification.confidence;
-    confidenceFill.style.width = `${(confidence * 100).toFixed(0)}%`;
-    confidenceFill.parentElement!.style.color = colour;
-    confidenceLabel.textContent = this.classification.fellBackToWisp
-      ? 'unreadable — fell back'
-      : `${Math.round(confidence * 100)}% sure`;
-
-    const features = this.classification.features;
-    const rows: Array<[string, string]> = [
-      ['Size', features.size.toFixed(2)],
-      ['Ink spent', `${Math.round(this.capture.inkUsed)} / ${CONFIG.ink.total}`],
-      ['Radius', spell.radius.toFixed(3)],
-      ['Mass', spell.mass.toFixed(2)],
-      ['Knockback', spell.knockback.toFixed(2)],
-      ['Spin', spell.spin.toFixed(2)],
-      ['Bounces', String(spell.bounces)],
-      ['Spawn', spell.originClamped ? 'centroid (pulled in)' : definition.spawn],
-    ];
-
-    if (spell.direction.x !== 0 || spell.direction.y !== 0) {
-      const degrees = (Math.atan2(spell.direction.y, spell.direction.x) * 180) / Math.PI;
-      rows.splice(2, 0, ['Aim', `${degrees.toFixed(0)}°`]);
-    }
-    if (spell.chirality !== 0) {
-      rows.push(['Swirl', spell.chirality > 0 ? 'counter-clockwise' : 'clockwise']);
-    }
-
-    params.replaceChildren(
-      ...rows.flatMap(([label, value]) => {
-        const dt = document.createElement('dt');
-        dt.textContent = label;
-        const dd = document.createElement('dd');
-        dd.textContent = value;
-        return [dt, dd];
+    const summary = this.composition.recipe.summary;
+    const heading = HEADING_LABELS[summary.heading];
+    const force = FORCE_LABELS[summary.force];
+    elements.summaryTitle.textContent = summary.heading === 'none' ? `${force} anchored magic` : `${force} magic · ${heading}`;
+    elements.summaryBlurb.textContent = `${summary.shape.length} force component${summary.shape.length === 1 ? '' : 's'}, released in drawing order.`;
+    elements.summaryHeading.textContent = heading;
+    elements.summaryForce.textContent = force;
+    elements.motifSequence.replaceChildren(
+      ...summary.shape.map((kind, index) => {
+        const icon = document.createElement('span');
+        icon.className = 'motif-icon';
+        icon.textContent = MOTIF_ICONS[kind];
+        icon.setAttribute('aria-label', `Shape component ${index + 1}`);
+        return icon;
       }),
     );
+    this.renderInkSplit(summary.inkCommitted, summary.inkReserved);
   }
 
-  private renderFamilyList(): void {
-    const { families, familiesNote, discoveredCount } = this.elements;
-
-    families.replaceChildren(
-      ...DISCOVERABLE.map((family) => {
-        const item = document.createElement('li');
-        const found = this.discovered.has(family);
-        item.classList.toggle('is-found', found);
-        item.style.color = SPELL_COLOURS[family];
-
-        const dot = document.createElement('span');
-        dot.className = 'dot';
-
-        const name = document.createElement('span');
-        name.textContent = found ? CONFIG.spells[family].name : '???';
-        name.style.color = 'var(--ink)';
-
-        const how = document.createElement('span');
-        how.className = 'how';
-        how.textContent = FAMILY_HINTS[family];
-
-        item.append(dot, name, how);
-        return item;
-      }),
-    );
-
-    discoveredCount.textContent = `${this.discovered.size}/${DISCOVERABLE.length}`;
-    const complete = this.discovered.size === DISCOVERABLE.length;
-    familiesNote.classList.toggle('is-complete', complete);
-    familiesNote.textContent = complete
-      ? 'All four found in this session. Stage 0 still needs cohort validation.'
-      : 'Find all four in this session. Cohort validation is still required.';
+  private renderInkSplit(committed: number, reserved: number): void {
+    const committedFraction = committed / CONFIG.ink.total;
+    const reservedFraction = reserved / CONFIG.ink.total;
+    this.elements.committedFill.style.width = `${committedFraction * 100}%`;
+    this.elements.reservedFill.style.width = `${reservedFraction * 100}%`;
+    this.elements.committedLabel.textContent = `${Math.round(committed)} committed`;
+    this.elements.reservedLabel.textContent = `${Math.round(reserved)} reserved`;
   }
 
-  /**
-   * Resizes the backing store to device pixels.
-   *
-   * Without this the canvas is drawn at CSS resolution and upscaled, which
-   * blurs the line the player is drawing — and the line is the entire game.
-   */
+  private renderTelemetryStatus(): void {
+    this.elements.recordCount.textContent = String(this.telemetry.count);
+    this.elements.exportButton.disabled = this.telemetry.count === 0;
+  }
+
+  private exportTelemetry(): void {
+    if (this.telemetry.count === 0) return;
+    const blob = new Blob([this.telemetry.toJSON()], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `spell-lab-${this.telemetry.sessionId}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   private resize(): void {
     const canvas = this.elements.canvas;
     const rect = canvas.getBoundingClientRect();
@@ -332,12 +245,11 @@ export class SpellLab {
       this.previewDirty = false;
       this.evaluate(this.capture.stroke, false);
     }
-
     this.ctx.clearRect(0, 0, this.viewport.width, this.viewport.height);
     drawScene(this.ctx, this.viewport, {
       casterPosition: CASTER_POSITION,
       stroke: this.capture.stroke,
-      spell: this.spell,
+      recipe: this.composition?.recipe ?? null,
       timeMs,
     });
     this.frame = requestAnimationFrame((next) => this.loop(next));
@@ -348,8 +260,11 @@ export class SpellLab {
   }
 }
 
-/** Fixed so the lab is reproducible between sessions. PRD §21. */
-const LAB_SEED = 0x50e11;
+function createSessionId(): string {
+  return typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `local-${Date.now().toString(36)}`;
+}
 
 export function mountSpellLab(): SpellLab {
   const byId = <T extends HTMLElement>(id: string): T => {
@@ -357,20 +272,22 @@ export function mountSpellLab(): SpellLab {
     if (element === null) throw new Error(`missing element #${id}`);
     return element as T;
   };
-
   return new SpellLab({
     canvas: byId<HTMLCanvasElement>('arena'),
     hint: byId('hint'),
     inkFill: byId('ink-fill'),
     inkLabel: byId('ink-label'),
-    family: byId('family'),
-    blurb: byId('blurb'),
-    confidenceFill: byId('confidence-fill'),
-    confidenceLabel: byId('confidence-label'),
-    params: byId('params'),
-    families: byId('families'),
-    familiesNote: byId('families-note'),
-    discoveredCount: byId('discovered-count'),
+    summaryTitle: byId('summary-title'),
+    summaryBlurb: byId('summary-blurb'),
+    summaryHeading: byId('summary-heading'),
+    summaryForce: byId('summary-force'),
+    motifSequence: byId('motif-sequence'),
+    committedFill: byId('committed-fill'),
+    reservedFill: byId('reserved-fill'),
+    committedLabel: byId('committed-label'),
+    reservedLabel: byId('reserved-label'),
+    recordCount: byId('record-count'),
+    exportButton: byId<HTMLButtonElement>('export-data'),
     assist: byId<HTMLSelectElement>('assist'),
   });
 }

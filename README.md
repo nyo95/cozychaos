@@ -5,9 +5,9 @@
 A casual online physics duel. Two wizards draw runes at the same time, and the
 shape, direction, and size of each drawing become a physical spell.
 
-**Current stage:** Spell Lab V1, offline. V1's single-family classifier is being
-replaced by wild composition — see `DESIGN-SPELL-COMPOSITION.md`. The geometry,
-fairness, and ink foundations underneath it carry over unchanged.
+**Current stage:** Spell Lab V2 technical prototype, offline. A stroke now
+composes several ordered force motifs and exposes the Ink committed/reserved
+trade-off. See `DESIGN-SPELL-COMPOSITION.md`.
 
 ## Run it
 
@@ -16,19 +16,19 @@ npm ci           # use ci, not install — the lockfile is authoritative
 npm run dev      # opens the Spell Lab at localhost:5173
 ```
 
-Draw anywhere on the island. The panel on the right shows which spell family
-your drawing became and every parameter it decided. Find all four families.
+Draw anywhere on the island. The panel shows only the coarse promise players
+need before committing: direction, force band, motif sequence, and how much Ink
+remains reserved. It never exposes the old family names or trajectory details.
 
 ```bash
-npm test         # 119 tests
+npm test         # 139 tests
 npm run typecheck
 npm run build
 npm audit        # must stay at 0 vulnerabilities
 ```
 
-**Status:** technical prototype. Not a validated Stage 0 — that needs a human
-playtest cohort, which no amount of code can substitute for. See the handover
-section at the end of `changelog.md`.
+**Status:** technical prototype, not yet human-validated. Telemetry is built
+into V2 so every playtest stroke can be exported and replayed.
 
 ## Documents
 
@@ -44,8 +44,8 @@ section at the end of `changelog.md`.
 ## Layout
 
 ```
-shared/     classifier, spell definitions, match state, config — used by both sides
-client/     drawing capture, input, rendering, UI
+shared/     geometry, classifier, motif composer, match state, config
+client/     drawing capture, telemetry, rendering, Spell Lab UI
 server/     empty until Stage 3 (online 1v1)
 ```
 
@@ -65,11 +65,9 @@ Three more these sessions added:
 
 - Client and server share `CONFIG` and the classifier, so the in-game preview
   and the server's verdict are the same computation and cannot disagree.
-- **Draw Assist affects recognition only.** Every gameplay parameter comes from
-  `classification.canonical`, the Standard-assist reading. And tolerance
-  scaling may widen bands that measure imperfection, but must never move a
-  boundary between spell families — doing either got both directions of this
-  wrong once already. `shared/src/spells/fairness.test.ts` guards it.
+- **Draw Assist never changes physics.** Wild recipes are composed entirely
+  from the canonical Standard reading and are identical across assist settings.
+  `fairness.test.ts` and `composition.test.ts` guard both pipelines.
 - Terminology: a **Turn** is one Setup→Draw→Reveal→Resolve→Score cycle, a
   **Round** ends in a knock-out and is worth a Star, a **Match** is first to
   three. Wobble resets per Round; ink resets per Turn. See `PRD-AMENDMENTS.md`

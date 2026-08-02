@@ -27,28 +27,38 @@
         <p class="stage__hint" id="hint">Draw anywhere on the island.</p>
         <div class="ink" aria-label="Ink meter">
           <div class="ink__bar"><span id="ink-fill"></span></div>
-          <span class="ink__label" id="ink-label">Ink 100%</span>
+          <span class="ink__label" id="ink-label">Reserve 100%</span>
         </div>
       </section>
 
       <aside class="readout">
         <div class="verdict">
-          <span class="verdict__family" id="family">Draw something</span>
-          <span class="verdict__blurb" id="blurb">Any single line becomes a spell.</span>
-          <div class="verdict__confidence">
-            <div class="meter"><span id="confidence-fill"></span></div>
-            <span id="confidence-label">—</span>
+          <span class="verdict__family" id="summary-title">Draw freely</span>
+          <span class="verdict__blurb" id="summary-blurb">
+            Your geometry becomes force. What you do not spend stays in reserve.
+          </span>
+          <div class="summary-stats">
+            <span>Direction <strong id="summary-heading">—</strong></span>
+            <span>Force <strong id="summary-force">—</strong></span>
+          </div>
+          <div class="motif-sequence" id="motif-sequence" aria-label="Shape sequence"></div>
+        </div>
+
+        <h2>Ink commitment</h2>
+        <div class="ink-split" aria-label="Committed and reserved ink">
+          <div class="ink-split__row">
+            <span id="committed-label">0 committed</span>
+            <div class="ink-split__track"><span class="is-committed" id="committed-fill"></span></div>
+          </div>
+          <div class="ink-split__row">
+            <span id="reserved-label">100 reserved</span>
+            <div class="ink-split__track"><span class="is-reserved" id="reserved-fill"></span></div>
           </div>
         </div>
 
-        <h2>What the drawing decided</h2>
-        <dl class="params" id="params"></dl>
-
-        <h2>Discovered <span id="discovered-count">0/4</span></h2>
-        <ul class="families" id="families"></ul>
-        <p class="families__note" id="families-note">
-          Find all four in this session. Cohort validation is still required.
-        </p>
+        <h2>Session strokes <span id="record-count">0</span></h2>
+        <button class="export-button" id="export-data" type="button" disabled>Export playtest JSON</button>
+        <p class="telemetry-note">Stored locally. Export includes the original stroke for replay and tuning.</p>
       </aside>
     </main>
     <script type="module" src="./src/main.ts"></script>
