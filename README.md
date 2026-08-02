@@ -18,7 +18,7 @@ Draw anywhere on the island. The panel on the right shows which spell family
 your drawing became and every parameter it decided. Find all four families.
 
 ```bash
-npm test         # 117 tests
+npm test         # 119 tests
 npm run typecheck
 npm run build
 npm audit        # must stay at 0 vulnerabilities
@@ -34,6 +34,7 @@ section at the end of `changelog.md`.
 |---|---|
 | `PRD.md` | The product requirements. The source of truth for intent. |
 | `PRD-AMENDMENTS.md` | Six defects found auditing the PRD, and their resolutions. **Overrides `PRD.md` where they conflict.** |
+| `DESIGN-PROPOSAL-WILD-SPELLS.md` | Pending lead decision: hybrid spell grammar and attack-vs-defense Ink economy. |
 | `changelog.md` | Per-session record of what changed and why. |
 
 ## Layout

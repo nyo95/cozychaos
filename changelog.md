@@ -6,6 +6,90 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 4: Proposal product pivot untuk keputusan lead
+
+Ideator mengklarifikasi bahwa fantasy utamanya bukan memilih satu dari empat
+jenis coretan, melainkan membuat coretan liar yang menjadi perilaku fisika, serta
+menggunakan satu pool Ink untuk trade-off menyerang versus bertahan.
+
+Proposal lengkap ditulis di `DESIGN-PROPOSAL-WILD-SPELLS.md`. Empat keluarga
+diusulkan berubah menjadi primitive/motif yang dapat digabung, bukan empat spell
+yang saling eksklusif. Sisa Ink setelah Draw diusulkan menjadi Ward Reserve
+otomatis agar defense tidak bergantung pada input real-time atau latency.
+
+Dokumen juga mencatat progres realistis (MVP sekitar 8–12%, multiplayer 0%),
+dampak terhadap kode yang sudah ada, serta roadmap Spell Lab V2 → Physics Toy →
+Network Risk Spike → Local Match → Online 1v1 → Presentation.
+
+**Tidak ada gameplay yang diubah pada sesi ini.** Proposal sengaja berstatus
+pending. Claude sebagai main lead diminta menerima, merevisi, atau menolaknya,
+lalu menentukan apakah revisi PRD dan Spell Lab V2 menjadi pekerjaan Claude,
+Codex, atau dibagi dengan implementer/reviewer terpisah.
+
+---
+
+## 2026-08-02 — Sesi 3: Lifecycle pointer dan status Stage 0
+
+**Pelaksana:** Codex
+
+**Status Stage 0:** technical prototype bersih, **belum** tervalidasi. Gate yang
+tersisa tetap playtest cohort manusia.
+
+Sesi ini menindaklanjuti tiga gap dari audit commit `89f1e35`.
+
+### 1. Stroke sekarang hanya di-commit satu kali
+
+Sebelumnya stroke yang menghabiskan tinta di-commit langsung dari
+`onStrokeMove`, lalu di-commit lagi ketika event `pointerup` menyusul. Commit
+kedua menaikkan `strokeIndex` dua kali dan bisa meroll ulang variance untuk
+gesture yang sama; instrumentasi playtest yang dipasang di jalur ini juga akan
+mencatat satu gesture sebagai dua stroke.
+
+`SpellLab` sekarang memiliki guard per-stroke dan satu fungsi `commitStroke()`
+yang idempotent. Auto-stop karena tinta dan release biasa memakai jalur commit
+yang sama, sehingga side effect hanya terjadi sekali.
+
+### 2. Posisi `pointerup` menjadi endpoint sebenarnya
+
+`attachPointerStream` sejak awal sudah menyediakan koordinat release melalui
+sample `onEnd`, tetapi `SpellLab` membuang sample tersebut. Sekarang posisi itu
+diteruskan ke capture sebelum klasifikasi final. Ini menjaga arah bidik untuk
+gesture pendek/touch yang release-nya merupakan sample paling baru.
+
+Ditambahkan `client/src/input/pointer.test.ts` untuk mengunci bahwa koordinat
+release diteruskan utuh dan satu pointer tidak menghasilkan dua event akhir.
+
+### 3. UI tidak lagi mengklaim satu sesi membuktikan Stage 0
+
+Copy awal dan copy setelah menemukan 4/4 sekarang menyebut hasil tersebut
+sebagai keberhasilan **sesi individual** dan tetap menyatakan bahwa validasi
+cohort diperlukan. Menemukan empat keluarga membuktikan classifier dapat
+dijangkau, bukan bahwa target PRD ≥90% penguji sudah tercapai.
+
+### 4. Rentang Node disamakan dengan toolchain
+
+`engines.node` pada `package.json` dan `package-lock.json` diubah dari `>=20`
+menjadi `^20.19.0 || >=22.12.0`, sesuai persyaratan Vite 8. Dengan demikian
+Node 20 lama tidak lagi dinyatakan kompatibel secara keliru.
+
+### Verifikasi sesi 3
+
+| Cek | Hasil |
+|---|---|
+| `npm ci --ignore-scripts` | bersih dari lockfile |
+| `npm audit` | **0 vulnerabilities** |
+| `npm test` | **119 passed** dalam 7 file |
+| `npm run typecheck` | bersih |
+| `npm run build` | bersih |
+| Browser: auto-stop tinta | `Out of ink`, satu hasil final, tanpa console error |
+| Browser: status cohort | copy baru tampil sebelum dan sesudah sesi |
+
+**Belum dikerjakan:** export JSON untuk instrumentasi playtest, playtest cohort
+10+ manusia, physics-library spike, dan asset provenance register. Stage 1 tetap
+belum dimulai.
+
+---
+
 ## 2026-08-02 — Sesi 2: Perbaikan hasil review
 
 **Status Stage 0:** technical prototype disetujui, **belum** tervalidasi

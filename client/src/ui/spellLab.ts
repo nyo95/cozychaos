@@ -73,6 +73,8 @@ export class SpellLab {
   private previewDirty = false;
   /** True once the player has released their first stroke. */
   private hasCommitted = false;
+  /** Prevents ink exhaustion and the later pointer-up from committing twice. */
+  private currentStrokeCommitted = false;
 
   constructor(private readonly elements: Elements) {
     const context = elements.canvas.getContext('2d');
@@ -96,7 +98,7 @@ export class SpellLab {
       {
         onStart: (sample) => this.onStrokeStart(sample.position),
         onMove: (sample) => this.onStrokeMove(sample.position),
-        onEnd: () => this.onStrokeEnd(),
+        onEnd: (sample) => this.onStrokeEnd(sample.position),
       },
       {
         toGameSpace: (clientX, clientY) => {
@@ -111,6 +113,7 @@ export class SpellLab {
 
   private onStrokeStart(point: Vec2): void {
     this.capture.begin(point);
+    this.currentStrokeCommitted = false;
     this.classification = null;
     this.spell = null;
     this.elements.hint.style.opacity = '0';
@@ -133,10 +136,27 @@ export class SpellLab {
     this.previewDirty = true;
 
     // Ink ran out mid-segment: the capture ended itself, so commit now.
-    if (!this.capture.isDrawing) this.onStrokeEnd();
+    if (!this.capture.isDrawing) this.commitStroke();
   }
 
-  private onStrokeEnd(): void {
+  /**
+   * Finishes a pointer-driven stroke at the release coordinate.
+   *
+   * Pointer-up can be the newest sample, especially for short touch gestures.
+   * It must be captured before final classification or aim will stop at the
+   * previous move event. If ink already auto-finished the stroke, the commit
+   * guard makes the later pointer-up a no-op.
+   */
+  private onStrokeEnd(finalPoint: Vec2): void {
+    if (this.currentStrokeCommitted) return;
+    if (this.capture.isDrawing) this.capture.extend(finalPoint);
+    this.commitStroke();
+  }
+
+  /** Commits exactly once, regardless of whether release or ink ended it. */
+  private commitStroke(): void {
+    if (this.currentStrokeCommitted) return;
+    this.currentStrokeCommitted = true;
     const stroke = this.capture.end();
     this.previewDirty = false;
     this.hasCommitted = true;
@@ -287,8 +307,8 @@ export class SpellLab {
     const complete = this.discovered.size === DISCOVERABLE.length;
     familiesNote.classList.toggle('is-complete', complete);
     familiesNote.textContent = complete
-      ? 'All four found. Stage 0 does what it promised.'
-      : 'Find all four and the lab is proven.';
+      ? 'All four found in this session. Stage 0 still needs cohort validation.'
+      : 'Find all four in this session. Cohort validation is still required.';
   }
 
   /**
