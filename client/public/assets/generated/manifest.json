@@ -8,7 +8,8 @@
       "height": 941,
       "alpha": false,
       "status": "obsolete-theme",
-      "usage": "provenance only; obsolete theme; do not wire as the active background"
+      "usage": "provenance only; obsolete theme; do not wire as the active background",
+      "replacement": "/assets/pixellab-pilot/environment/dream-island-arena.png"
     },
     "wizardCyan": {
       "file": "/assets/generated/wizard-cyan.png",

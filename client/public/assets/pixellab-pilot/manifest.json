@@ -1,8 +1,35 @@
 {
-  "version": 1,
+  "version": 2,
   "status": "runtime-pilot",
   "generatedAt": "2026-08-02",
-  "provider": "PixelLab API v2",
+  "provider": "PixelLab API",
+  "environment": {
+    "name": "Open Dream-Island Arena",
+    "status": "art-direction-reference",
+    "acceptedFile": "/assets/pixellab-pilot/environment/dream-island-arena.png",
+    "width": 400,
+    "height": 224,
+    "endpoint": "/v1/generate-image-pixflux",
+    "seed": 81103,
+    "runtimeIntegration": "reference only; platform and obstacle geometry remain procedural and server-authoritative",
+    "variants": [
+      {
+        "file": "/assets/pixellab-pilot/environment/dream-island-arena-rejected-v1.png",
+        "status": "rejected-cave-frame",
+        "reason": "Dark aperture edges recreated the obsolete cave direction and the platform was too small."
+      },
+      {
+        "file": "/assets/pixellab-pilot/environment/dream-island-arena.png",
+        "status": "accepted-reference",
+        "reason": "Open sky reads immediately and keeps the combat airspace visually quiet."
+      },
+      {
+        "file": "/assets/pixellab-pilot/environment/dream-island-arena-rejected-v3.png",
+        "status": "rejected-no-material-change",
+        "reason": "The init-image revision did not materially widen the platform or improve V2."
+      }
+    ]
+  },
   "character": {
     "name": "Cozy Chaos Cyan Wizard Pilot",
     "view": "side",

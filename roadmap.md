@@ -1,6 +1,6 @@
 # Cozy Chaos — Product, Art, and Delivery Roadmap
 
-Last updated: 2026-08-02 (Session 15). This is the shared handoff for BK,
+Last updated: 2026-08-02 (Session 17). This is the shared handoff for BK,
 Claude, and Codex.
 
 > **Source of truth:** the active combat contract is
@@ -43,12 +43,13 @@ old document.
 
 ## 2. Camera and art direction
 
-The runtime remains a **side-view Canvas 2D simulation** presented as a layered
-2.5D hand-painted diorama:
+The runtime remains a **side-view Canvas 2D simulation**. The active visual
+pilot is now cohesive pixel art rather than the earlier hand-painted cave kit:
 
 - floating dream island against a magical dream sky;
-- layered/parallax background;
-- faceted crystals, rim light, soft shadows, and three-quarter characters;
+- layered/parallax background with crisp pixel clusters and a limited
+  indigo-violet palette;
+- faceted crystals, readable silhouettes, and side-view PixelLab wizards;
 - procedural rune particles kept crisp above painted scenery.
 
 This keeps arcs, wind, bounces, and spell-to-spell collisions readable. A true
@@ -60,9 +61,10 @@ of Gunbound-like ballistics. See amendment A-07 in `PRD-AMENDMENTS.md`.
 character, then render it into 2D sprite sheets. Only PNG output enters the
 runtime.
 
-PixelLab is a possible pixel-art pipeline, not an automatic upgrade. The
-current visual candidates are painterly; mixing one pixel-art character into a
-painterly build is an art-style pivot that requires an explicit A/B decision.
+BK selected PixelLab as the active 2D asset direction in Session 16 and
+explicitly skipped the playtest-first art gate. Session 17 extends that choice
+to an environment concept. Runtime geometry remains procedural and
+server-aligned; generated pixels are presentation/reference only.
 
 ## 3. Current implementation snapshot
 
@@ -79,8 +81,8 @@ Implemented vertical slice:
 - Responsive multiplayer browser UI; portrait 390×844 was verified without
   overflow in Session 11.
 
-Verification on 2026-08-02: **189 tests passed**. Typecheck, build, and audit
-must also pass before the Session 15 commit sequence is declared complete.
+Verification on 2026-08-02: **191 tests passed**. Typecheck, build, and audit 0
+also passed again in Session 17.
 
 Relevant contracts:
 
@@ -96,14 +98,14 @@ Relevant contracts:
 All generated files are intentionally retained for provenance. None is wired
 to `matchScene.ts`; the programmatic renderer remains active.
 
-### Obsolete-theme arena concept — 1672×941
+### Historical arena concept — 1672×941
 
 This file belongs to the removed pre-Session-12 environment direction. It is
-kept as history and must not be used as the active background.
+kept as history and must not be used as the active background. It is no longer
+shown as the main arena preview because doing so made the obsolete cave look
+like the current art direction.
 
-![Obsolete arena concept](client/public/assets/generated/cozy-cave-arena.png)
-
-File: `client/public/assets/generated/cozy-cave-arena.png`
+Historical file: `client/public/assets/generated/cozy-cave-arena.png`
 
 ### Cyan wizard candidate — 1254×1254, transparent
 
@@ -120,11 +122,9 @@ File: `client/public/assets/generated/wizard-pink.png`
 ### Obsolete-theme reflector sheet — 1672×941, transparent
 
 This sheet also belongs to the removed environment direction and is retained
-only for provenance.
+only for provenance. It is not previewed as current art.
 
-![Obsolete reflector concepts](client/public/assets/generated/cave-reflectors-sheet.png)
-
-File: `client/public/assets/generated/cave-reflectors-sheet.png`
+Historical file: `client/public/assets/generated/cave-reflectors-sheet.png`
 
 The two wizard cutouts remain candidates, but their 48–80 px readability must
 be tested before integration. Exact status, prompts, and processing are in
@@ -134,8 +134,8 @@ be tested before integration. Exact status, prompts, and processing are in
 ## 5. PixelLab runtime pilot
 
 BK explicitly overrode the playtest-first gate in Session 16 and selected
-PixelLab as the current character-art route. Codex used the official PixelLab
-API v2 directly and generated:
+PixelLab as the current 2D art route. Codex used the official PixelLab API
+directly and generated:
 
 - one cyan 8-direction source character, with only `east` consumed at runtime;
 - six-frame neutral idle;
@@ -144,14 +144,39 @@ API v2 directly and generated:
   cannot drift in pose or silhouette;
 - four packed runtime sheets plus a machine-readable manifest.
 
+### Current environment concept — 400×224
+
+Session 17 replaces the prominently displayed cave concept with an open dream
+sky and floating island in the same pixel-art direction as the runtime wizard.
+It is an art-direction reference, not collision geometry: the authoritative
+platform, crystals, and their randomized positions still come from shared
+config and server snapshots.
+
+![Current PixelLab dream-island arena](client/public/assets/pixellab-pilot/environment/dream-island-arena.png)
+
+File: `client/public/assets/pixellab-pilot/environment/dream-island-arena.png`
+
+The generation trail is deliberately retained. V1 was rejected because it
+reintroduced a cave-like dark aperture and made the play surface too small.
+V3 was rejected because the image-to-image edit did not materially widen the
+platform. V2 is the accepted direction because the sky is open edge-to-edge
+and the combat area remains visually quiet.
+
+| Variant | Preview | Decision |
+|---|---|---|
+| Rejected V1 | ![Rejected cave-framed PixelLab arena](client/public/assets/pixellab-pilot/environment/dream-island-arena-rejected-v1.png) | Cave-like edge frame; platform too small. |
+| Accepted V2 | ![Accepted open-sky PixelLab arena](client/public/assets/pixellab-pilot/environment/dream-island-arena.png) | Open sky; current environment reference. |
+| Rejected V3 | ![Rejected no-op PixelLab edit](client/public/assets/pixellab-pilot/environment/dream-island-arena-rejected-v3.png) | Edit did not materially change V2. |
+
 The first cast attempt was rejected because PixelLab baked cyan magic arcs into
 the middle frame. A single targeted revision removed all visual spell effects;
 the clean v2 is the only cast consumed by the renderer. The rejected frames are
 retained and labelled so Claude can see why they must not ship.
 
-The pilot spent 14 of 40 trial generations; 26 remained at the end of asset
-generation. The API token is not stored in source, docs, manifest, environment,
-or git. Because it was pasted into chat, rotate it after this session.
+Character generation spent 14 trial generations and the environment pass spent
+3 more; 23 of 40 remained after Session 17. The API token is not stored in
+source, docs, manifest, environment, or git. Because it was pasted into chat,
+rotate it after this session.
 
 Runtime integration is intentionally one-way: PixelLab draws the wizard, while
 server snapshots still own position, Wobble, collision, and score. Canvas
@@ -169,7 +194,7 @@ Files and exact QA notes live in `ASSET-PROVENANCE.md` and
 - Amend the obsolete Three.js requirement to layered Canvas 2D.
 - Preserve and commit Sessions 8–15 in readable groups: shared sim/protocol,
   server, client, art candidates, then documentation.
-- Gate: 189 tests, typecheck, build, audit 0, and a clean worktree.
+- Gate: 191 tests, typecheck, build, audit 0, and a clean worktree.
 
 ### Stage 2 — Human combat validation — deferred by BK
 
@@ -190,6 +215,9 @@ The full original execution contract remains T6–T7 in `HANDOVER-CODEX.md`.
 
 - **3A complete:** cyan base, idle, clean cast, pink palette derivative,
   sprite-sheet loader, procedural fallback.
+- **3A environment complete:** replace the obsolete cave preview with a
+  PixelLab open-sky dream-island reference; keep runtime collision geometry
+  procedural.
 - **3B next:** add hit and KO only after the integrated pilot is accepted at
   real 48 px and 80 px render sizes.
 - **3C later:** produce a separately generated pink character only if the

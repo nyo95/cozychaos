@@ -31,7 +31,7 @@ secondary effect. Reveal stays simultaneous and the server decides wind,
 collisions, fragments, Wobble, and score.
 
 ```bash
-npm test         # 189 tests
+npm test         # 191 tests
 npm run typecheck
 npm run build
 npm audit        # must stay at 0 vulnerabilities
@@ -45,6 +45,9 @@ real-device playtests are still owed.
 Character presentation currently uses a PixelLab runtime pilot: cyan idle/cast
 sprites plus a deterministic pink palette derivative. Sprite decode failure
 falls back to the procedural Canvas wizard and never affects physics.
+The current environment reference is the PixelLab open-sky dream island shown
+in `roadmap.md`; the old cave images are historical only. Runtime island and
+crystal geometry remain procedural so visible surfaces match server collision.
 
 ## Documents
 

@@ -1,10 +1,8 @@
 # Handover eksekusi untuk Codex
 
-Ditulis 2026-08-02 (Sesi 14) oleh Claude sebagai orchestrator. Menggantikan
-bagian "Decision ownership" di `roadmap.md` §8.
-
-**Baca ini dulu sebelum menyentuh file mana pun.** Dokumen ini berurutan.
-Task di Stage 1 memblokir semua yang di bawahnya. Jangan lompat.
+Ditulis 2026-08-02 (Sesi 14) oleh Claude sebagai orchestrator, lalu diperbarui
+sampai Sesi 17. Stage 1 di bawah dipertahankan sebagai execution record; status
+aktif selalu mengikuti override terbaru dan `roadmap.md`.
 
 > **Override BK — Session 16 (2026-08-02):** Stage 1 T1–T5 sudah selesai dan
 > tersimpan dalam lima commit. BK kemudian secara eksplisit menunda Stage 2
@@ -15,32 +13,38 @@ Task di Stage 1 memblokir semua yang di bawahnya. Jangan lompat.
 > dikerjakan pada Session 16. T6–T7 tetap utang sebelum balancing/public beta.
 > State terbaru ada di `roadmap.md` §5–6 dan entri teratas `changelog.md`.
 
+> **Update BK — Session 17 (2026-08-02):** preview gua yang masih tampil di
+> roadmap bukan arah aktif. Codex membuat tiga pass environment PixelLab dan
+> menerima `pixellab-pilot/environment/dream-island-arena.png` sebagai
+> art-direction reference open-sky. V1 (cave-like aperture) dan V3 (edit tanpa
+> perubahan material) ditolak tetapi dipertahankan untuk provenance. Jangan
+> wire platform hasil generasi ke collision: lebarnya tidak cocok dengan arena
+> config. Runtime `drawIsland`/`drawCrystals` tetap mengikuti shared config.
+
 ---
 
 ## Ringkasan situasi
 
-Kode dalam kondisi sehat: **189 test hijau**, typecheck bersih. Yang tidak sehat
-adalah **dokumentasinya**. Tiga dokumen handoff mendeskripsikan mekanik yang
-sudah dihapus di Sesi 12, dan tujuh sesi kerja belum di-commit.
-
-Ini bukan masalah kosmetik. `roadmap.md` adalah dokumen yang Codex baca sebagai
-peta. Petanya salah. Task pertama adalah memperbaiki peta.
+Kode dalam kondisi sehat: **191 test hijau**, typecheck/build bersih, audit 0.
+Recovery repo dan sinkronisasi dokumen sudah selesai; cave preview juga sudah
+diganti pada Sesi 17. Utang aktif adalah human combat validation, physics
+library spike, hosted deployment, dan batch animasi setelah pilot diterima.
 
 ### Sumber kebenaran, terurut
 
 | Prioritas | Dokumen | Status |
 |---|---|---|
 | 1 | `DESIGN-RUNE-BODY-COMBAT.md` | **Benar.** Kontrak combat aktif, ditulis ulang Sesi 12. |
-| 2 | `shared/src/config/` + kode | **Benar.** 189 test menegakkannya. |
+| 2 | `shared/src/config/` + kode | **Benar.** 191 test menegakkannya. |
 | 3 | `PRD-AMENDMENTS.md` | Berlaku, menang atas PRD saat konflik. |
 | 4 | `PRD.md` | Berlaku kecuali §15 (lihat T4). |
-| — | `roadmap.md` | **Stale.** Lihat T1. |
-| — | `README.md` | **Stale.** Lihat T2. |
-| — | `ASSET-PROVENANCE.md` + `manifest.json` | **Stale tema.** Lihat T3. |
+| 5 | `roadmap.md` | **Current through Session 17.** |
+| 6 | `README.md` | **Current through Session 17.** |
+| 7 | `ASSET-PROVENANCE.md` + manifests | **Current through Session 17.** |
 
 ---
 
-## Stage 1 — Perbaiki peta (blocking, murni dokumen + git)
+## Stage 1 — Perbaiki peta (complete; historical execution record)
 
 Tidak ada satu pun task di stage ini yang menyentuh logika gameplay. Kalau ada
 test yang berubah hasilnya di stage ini, berarti kamu salah mengerjakan.
@@ -57,7 +61,7 @@ Klaim yang salah, dengan bukti:
 | §1 | "Attack matter carries damage energy. Counter matter gains return damage only by intercepting" | Tabrakan sekarang simetris dan dibobot massa lawan. Lihat `DESIGN-RUNE-BODY-COMBAT.md` §"The launch math" dan aturan produk 5. |
 | §1, §3 | "Ward from reserved Ink" | Ward dihapus total Sesi 12. Sisa kemunculan kata "Ward" di kode hanya nama spell family `Bubble Ward` — hal berbeda. |
 | §1, §3, §7 Stage D | "cave", "cozy cave arena", "stalactite/stalagmite reflectors" | Arena sekarang **floating dream island + dream sky**, sesuai PRD §1 dan §12. Lihat `client/src/rendering/matchScene.ts` (`drawSky`, `drawCrystals`) dan komentar di `arena.ts:58`. |
-| §3 | "176 tests green" | 189 test hijau per 2026-08-02. Verifikasi ulang, jangan salin angka ini mentah. |
+| §3 | "176 tests green" | 191 test hijau per 2026-08-02. Verifikasi ulang, jangan salin angka ini mentah. |
 | §2 | "Keep the simulation as a side-view 2D plane…" | **Ini benar, pertahankan.** Lihat T4 untuk penguatannya. |
 
 Yang harus dilakukan:
@@ -126,7 +130,7 @@ ikuti pola yang sudah ada di repo).
 
 PRD §15 masih menulis `Client: Vite + TypeScript + Three.js`. Implementasi
 berjalan di Canvas 2D sejak Sesi 0, dengan alasan yang benar dan tercatat, dan
-sekarang membawa 189 test.
+sekarang membawa 191 test.
 
 Constraint yang tidak ditegakkan ini adalah jebakan: suatu saat seseorang —
 manusia atau agent — akan membacanya sebagai izin masuk 3D, lalu membuang

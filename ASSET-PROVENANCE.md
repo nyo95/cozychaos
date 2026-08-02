@@ -1,9 +1,9 @@
 # Asset Provenance Register
 
 Status: PixelLab wizard pilot **ACTIVE** sebagai presentation layer dengan
-procedural fallback. Arena dan reflector ImageGen **OBSOLETE** sejak Sesi 12
-(arena pindah ke floating dream island). Dua wizard ImageGen lama tetap
-kandidat dan tidak ter-wire ke renderer.
+procedural fallback. PixelLab open-sky arena adalah **ART-DIRECTION
+REFERENCE**. Arena dan reflector ImageGen lama **OBSOLETE** sejak Sesi 12.
+Dua wizard ImageGen lama tetap kandidat dan tidak ter-wire ke renderer.
 
 All files below were generated for this repository on 2026-08-02 with the
 built-in OpenAI ImageGen workflow. The only visual references were the existing
@@ -85,6 +85,9 @@ remote character access identifier is stored in the repository.
 | `client/public/assets/pixellab-pilot/cyan/cast-clean-v2/east/` | PixelLab v3, eight frames | accepted |
 | `client/public/assets/pixellab-pilot/pink/` | deterministic local cyan→pink palette derivative | accepted |
 | `client/public/assets/pixellab-pilot/runtime/` | packed one-row sheets consumed by Canvas | active pilot |
+| `client/public/assets/pixellab-pilot/environment/dream-island-arena.png` | PixelLab Pixflux open-sky environment | accepted art-direction reference |
+| `client/public/assets/pixellab-pilot/environment/dream-island-arena-rejected-v1.png` | PixelLab Pixflux first environment attempt | rejected: cave-like aperture |
+| `client/public/assets/pixellab-pilot/environment/dream-island-arena-rejected-v3.png` | PixelLab Pixflux init-image revision | rejected: no material improvement |
 
 The base prompt requested a compact semi-chibi side-view wizard with an
 oversized crooked cyan hat, short robe, simple cream face, tiny boots, empty
@@ -113,3 +116,29 @@ so a later agent does not accidentally regenerate or ship the same failure.
 - Runtime sheets use nearest-neighbour rendering. Slot 1 mirrors the east-facing
   frames. Physics position, collision radius, Wobble, and score remain server
   data; missing images fall back to the procedural wizard.
+
+## PixelLab environment correction — Session 17
+
+The old `cozy-cave-arena.png` remains historical provenance, but it is no
+longer shown as the active arena preview in `roadmap.md`. Three PixelLab
+Pixflux generations were inspected:
+
+1. V1 was rejected because its dark edge aperture recreated a cave and its
+   central platform occupied too little horizontal space.
+2. V2 was accepted as the visual-direction reference because its sky is open,
+   its palette matches the PixelLab wizards, and the combat airspace is quiet.
+3. V3 attempted to widen V2 with an init-image edit, but it made no material
+   improvement and was rejected.
+
+The accepted prompt specified a production-ready 16:9 side-view spell-duel
+environment, edge-to-edge indigo-magenta dream sky, sparse clouds and stars,
+a centered floating island, crisp clustered pixels, a limited palette, and no
+cave, frame, characters, obstacles, spells, UI, text, or isometric depth.
+
+This output is not collision truth. PixelLab did not obey the requested 82%
+platform width closely enough, so wiring the painted platform into runtime
+would create a visible-versus-physical mismatch. `drawIsland` and
+`drawCrystals` remain authoritative presentation generated from shared config;
+the PixelLab image is a palette/composition target for the next environment
+pass. Three additional generations were spent, leaving 23 of 40 trial
+generations. No credential or remote job identifier is stored.

@@ -6,6 +6,55 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 17: ganti preview gua dengan arena PixelLab open-sky
+
+**Pelaksana:** Codex. BK menunjukkan bahwa `roadmap.md` masih menampilkan
+`cozy-cave-arena.png` sebagai gambar arena walaupun file itu sudah ditandai
+`obsolete-theme`. Label metadata saja tidak cukup: secara visual pembaca tetap
+menganggap gua sebagai arah aktif.
+
+### Perubahan
+
+- Tiga pass PixelLab Pixflux 400×224 dibuat untuk arena side-view pixel-art.
+- V1 ditolak karena dark aperture di tepi kembali terbaca sebagai gua dan
+  platform terlalu kecil.
+- V2 diterima sebagai art-direction reference: open indigo-magenta dream sky,
+  palet selaras dengan wizard PixelLab, dan area lintasan spell tetap tenang.
+- V3 mencoba memperlebar platform melalui init-image revision, tetapi tidak
+  menghasilkan perubahan material dan ditolak.
+- `roadmap.md` sekarang menampilkan V2 sebagai preview utama, menyimpan ketiga
+  hasil generation trail, dan tidak lagi menampilkan cave arena/reflector
+  lama sebagai preview aktif.
+- Manifest PixelLab naik ke v2 dengan environment contract, seed, status, dan
+  alasan accept/reject. Provenance serta handover diperbarui agar Claude tidak
+  menghidupkan kembali aset gua.
+
+### Batas integrasi
+
+Arena PixelLab belum menjadi collision background. Model tidak memenuhi target
+lebar platform 82% secara presisi; memakainya langsung akan membuat permukaan
+yang terlihat berbeda dari geometri server. Runtime `drawIsland` dan
+`drawCrystals` tetap mengikuti shared config. Aset baru adalah target palet dan
+komposisi, bukan sumber physics.
+
+### Biaya dan keamanan
+
+- 3 generation tambahan dipakai; 23 dari 40 trial generation tersisa.
+- Token hanya dipakai saat request dan tidak ditulis ke source, dokumentasi,
+  manifest, environment, atau git.
+
+### Verifikasi
+
+| Cek | Hasil |
+|---|---|
+| Asset QA | ketiga PNG opaque, 400×224; accepted/rejected path valid |
+| JSON manifest | parse bersih; obsolete arena menunjuk replacement baru |
+| `npm test` | **191 passed** (14 file) |
+| `npm run typecheck` | bersih |
+| `npm run build` | shared + client + server berhasil |
+| `npm audit` | 0 vulnerability |
+| Credential scan | tidak ada token/API credential di tracked text |
+
 ## 2026-08-02 — Sesi 16: PixelLab pilot di-generate dan masuk runtime
 
 **Pelaksana:** Codex. BK secara eksplisit meminta melewati gate playtest dan
