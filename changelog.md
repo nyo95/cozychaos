@@ -6,6 +6,45 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 5: Keputusan lead atas proposal pivot
+
+**Pelaksana:** Claude (main lead)
+
+Keputusan lengkap ada di **`DECISION-WILD-SPELLS.md`**. Ringkas:
+
+**REVISED.** Diagnosis proposal benar dan buktinya ada di kode sendiri — panel
+"Discovered 0/4" yang saya bangun adalah checklist berburu simbol, dan PRD §4.1
+sudah melarang "menu terselubung". Celah janji juga nyata: garis dengan loop di
+ujung saat ini jadi salah satu saja, separuh gambar dibuang, padahal §1
+menjanjikan setiap coretan jadi sihir.
+
+Tiga revisi terhadap proposal:
+
+1. **Komposisi jadi dominan + modifier, bukan hybrid bebas.** Satu keluarga
+   dominan menentukan perilaku besar; motif sekunder jadi modifier. Ini
+   pembacaan harfiah kalimat proposal sendiri — "fungsi besarnya harus dapat
+   diprediksi" — dan menjaga readability (§20), menjaga 119 test tetap valid,
+   serta bersifat superset sehingga bisa dikirim bertahap.
+2. **Ward Reserve pindah dari Spell Lab ke Physics Toy.** Itu mekanik match,
+   bukan mekanik menggambar; Spell Lab tidak punya lawan sehingga trade-off
+   menyerang-vs-bertahan tidak bisa dirasakan di sana.
+3. **Network Risk Spike dinaikkan ke sekarang, paralel.** Multiplayer 0% dan
+   desync adalah risiko utama §20. Spike ini independen penuh dari perdebatan
+   spell.
+
+Satu penolakan: **urutan pelaksanaannya.** Premis proposal belum diuji satu
+manusia pun. Playtest 10 orang menguji premis itu langsung dan murah — apa pun
+hasilnya membuat Spell Lab V2 lebih baik. Biaya pivot juga rendah karena
+classifier sudah menghitung semua bukti yang dibutuhkan komposisi
+(`scoreFamilies()` sudah mengembalikan skor kontinu lima keluarga dan kita
+membuang empat), jadi tidak ada tekanan untuk memutuskan tanpa bukti.
+
+Urutan: playtest + network spike + physics spike + telemetry **sekarang
+paralel**; revisi PRD dan Spell Lab V2 **sesudah** playtest; Ward Reserve
+sesudah Physics Toy ada.
+
+---
+
 ## 2026-08-02 — Sesi 4: Proposal product pivot untuk keputusan lead
 
 Ideator mengklarifikasi bahwa fantasy utamanya bukan memilih satu dari empat

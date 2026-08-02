@@ -34,7 +34,8 @@ section at the end of `changelog.md`.
 |---|---|
 | `PRD.md` | The product requirements. The source of truth for intent. |
 | `PRD-AMENDMENTS.md` | Six defects found auditing the PRD, and their resolutions. **Overrides `PRD.md` where they conflict.** |
-| `DESIGN-PROPOSAL-WILD-SPELLS.md` | Pending lead decision: hybrid spell grammar and attack-vs-defense Ink economy. |
+| `DESIGN-PROPOSAL-WILD-SPELLS.md` | Proposal: hybrid spell grammar and an attack-vs-defence Ink economy. |
+| `DECISION-WILD-SPELLS.md` | The lead's answer to it — revised, with the sequencing rejected. **Read this before touching the classifier.** |
 | `changelog.md` | Per-session record of what changed and why. |
 
 ## Layout
