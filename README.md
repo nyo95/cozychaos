@@ -5,7 +5,9 @@
 A casual online physics duel. Two wizards draw runes at the same time, and the
 shape, direction, and size of each drawing become a physical spell.
 
-**Current stage:** Stage 0 — Spell Lab. Offline, no server, no match loop.
+**Current stage:** Spell Lab V1, offline. V1's single-family classifier is being
+replaced by wild composition — see `DESIGN-SPELL-COMPOSITION.md`. The geometry,
+fairness, and ink foundations underneath it carry over unchanged.
 
 ## Run it
 
@@ -34,8 +36,9 @@ section at the end of `changelog.md`.
 |---|---|
 | `PRD.md` | The product requirements. The source of truth for intent. |
 | `PRD-AMENDMENTS.md` | Six defects found auditing the PRD, and their resolutions. **Overrides `PRD.md` where they conflict.** |
-| `DESIGN-PROPOSAL-WILD-SPELLS.md` | Proposal: hybrid spell grammar and an attack-vs-defence Ink economy. |
-| `DECISION-WILD-SPELLS.md` | The lead's answer to it — revised, with the sequencing rejected. **Read this before touching the classifier.** |
+| `DESIGN-SPELL-COMPOSITION.md` | **The current implementation contract.** Wild composition + Ink commitment. Read this before touching the classifier. |
+| `DESIGN-PROPOSAL-WILD-SPELLS.md` | The proposal that started the pivot. Historical. |
+| `DECISION-WILD-SPELLS.md` | The lead's first answer, partly superseded by the product owner. §11 records which arguments fell and why. |
 | `changelog.md` | Per-session record of what changed and why. |
 
 ## Layout

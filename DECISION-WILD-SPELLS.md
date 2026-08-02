@@ -4,6 +4,16 @@
 **Decision owner:** Claude (main lead)
 **Tanggal:** 2 Agustus 2026
 
+> ## ⚠️ SUPERSEDED sebagian — baca §11 di bawah
+>
+> BK sebagai pemilik produk meng-override tiga butir dokumen ini beberapa jam
+> setelah ditulis. Kontrak implementasi yang berlaku sekarang adalah
+> **`DESIGN-SPELL-COMPOSITION.md`**.
+>
+> Dokumen ini dipertahankan apa adanya karena alasan penolakannya masih relevan
+> — terutama soal "informed commitment", yang justru menjadi batasan desain
+> paling penting di kontrak barunya.
+
 ---
 
 ## Keputusan
@@ -218,3 +228,64 @@ bukan hanya *apa*. Aku sudah commit untukmu kali ini dengan atribusi.
 Dan sesuai instruksi penutup proposal: **jangan sentuh classifier atau mulai
 multiplayer berdasarkan proposal itu** sampai butir E selesai. Butir B dan C
 aman dikerjakan sekarang — keduanya tidak menyentuh satu pun file yang ada.
+
+---
+
+## 11. Override oleh pemilik produk
+
+BK mengklarifikasi arah beberapa jam setelah dokumen ini ditulis: yang ia
+inginkan adalah coretan liar yang tidak terkontrol, bukan empat jenis coretan,
+dengan ink sebagai keputusan menyerang-versus-bertahan.
+
+Tiga butir keputusan saya di atas gugur.
+
+### Yang gugur, dan mengapa
+
+**1. "Dominan + modifier" → komposisi motif penuh.**
+
+Argumen saya masih berdiri secara teknis, tapi ia menjawab pertanyaan yang
+salah. Saya mengoptimalkan agar hasilnya mudah dibaca dan mudah diuji; BK
+mengoptimalkan agar menggambarnya terasa bebas. Untuk produk yang tagline-nya
+*"Draw Magic. **Expect Chaos**"* dan pilar desainnya berjudul *"Cozy chaos"*,
+prioritas BK lebih setia pada PRD daripada prioritas saya.
+
+Kekhawatiran readability dan testability tidak saya buang, saya pindahkan:
+keduanya sekarang hidup sebagai **sifat 8 di kontrak test** —
+`summary.heading` dan `summary.force` harus stabil terhadap tremor kecil,
+meskipun detail komponennya berubah. Itu memberi gigi pada kalimat "chaos di
+detail, bukan di kategori", dan mencapai tujuan yang sama tanpa memaksakan satu
+pemenang tunggal.
+
+**2. Empat keluarga → primitive internal.**
+
+Saya sebelumnya memilih mempertahankan namanya sebagai alat model mental. Salah.
+Pertanyaan ketiga proposal menawarkan opsi ini dan saya memilih yang lebih
+konservatif tanpa alasan kuat. Selama pemain melihat "Arc Bolt", ia akan
+berusaha membuat Arc Bolt — dan itu perburuan simbol yang justru ingin kita
+bunuh. Panel "Discovered n/4" **dihapus**, bukan diberi label ulang.
+
+**3. Playtest 10 orang → dibatalkan.**
+
+Argumen saya gugur paling telak di sini, dan saya perlu mencatatnya jujur. Saya
+berargumen "uji premisnya dulu sebelum pivot". Tapi premis itu milik proposal;
+BK tidak sedang mengajukan hipotesis, ia sedang menyatakan game apa yang ingin
+ia buat. Memvalidasi versi lama tidak ada gunanya kalau pemiliknya tidak mau
+membangunnya apa pun hasilnya.
+
+Risiko yang tersisa nyata: motif dirancang dari tebakan kita, bukan dari coretan
+orang sungguhan. Itu ditutup dengan menjadikan **telemetry syarat wajib V2, bukan
+follow-up** (§8 kontrak baru). Orang pertama yang memakai V2 menghasilkan data
+yang tadinya saya minta dari sesi observasi.
+
+### Yang bertahan
+
+- **Ward Reserve tetap milik Physics Toy.** Spell Lab tidak punya lawan; trade-off
+  menyerang-vs-bertahan tidak bisa dirasakan di tempat yang tidak ada yang
+  menyerang. Spell Lab V2 hanya wajib **menampilkan** pembagian ink.
+- **Network Risk Spike tetap naik ke sekarang, paralel.** Multiplayer masih 0%
+  dan desync masih risiko utama §20.
+- **Masalah "informed commitment" tetap batasan desain utama.** Keputusan ink
+  hanya bermakna kalau pemain bisa memperkirakan apa yang ia beli. Ini yang
+  melahirkan butir 3 arah produk — tahu kasarnya, kaget detailnya — dan sifat 8
+  di kontrak test. Ini satu-satunya bagian dokumen ini yang justru menguat
+  setelah di-override.

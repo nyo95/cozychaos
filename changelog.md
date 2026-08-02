@@ -6,6 +6,64 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 6: Arah dikunci pemilik produk + kontrak komposisi
+
+**Pelaksana:** Claude
+
+BK meng-override tiga butir keputusan sesi 5. Arah final: **coretan liar, bukan
+empat jenis coretan**, dengan ink sebagai keputusan menyerang-versus-bertahan.
+
+Kontrak implementasi lengkap ada di **`DESIGN-SPELL-COMPOSITION.md`**.
+`DECISION-WILD-SPELLS.md` diberi tanda superseded dan §11 mencatat butir mana
+yang gugur beserta alasannya.
+
+### Empat butir arah yang dikunci
+
+1. Coretan liar; tidak ada bentuk "benar" yang harus ditemukan.
+2. Ink yang dipakai menyerang adalah ink yang tidak bisa dipakai bertahan.
+3. Pemain tahu kasarnya, kaget detailnya.
+4. Empat keluarga jadi primitive internal; pemain tidak pernah melihat namanya.
+
+### Argumen saya yang gugur — dicatat jujur
+
+**Playtest-first gugur paling telak.** Saya berargumen "uji premisnya sebelum
+pivot", tapi premis itu milik proposal. BK tidak mengajukan hipotesis; ia
+menyatakan game apa yang ingin ia buat. Memvalidasi versi lama tidak berguna
+kalau pemiliknya tidak akan membangunnya apa pun hasilnya.
+
+**"Dominan + modifier" gugur** karena menjawab pertanyaan yang salah. Saya
+mengoptimalkan keterbacaan dan testability; BK mengoptimalkan kebebasan
+menggambar. Untuk produk bertagline *"Expect Chaos"* dengan pilar berjudul
+*"Cozy chaos"*, prioritas BK lebih setia pada PRD daripada prioritas saya.
+
+**Mempertahankan nama keluarga gugur.** Selama pemain melihat "Arc Bolt", ia
+akan berusaha membuat Arc Bolt — perburuan simbol yang justru ingin dibunuh.
+
+### Yang bertahan, dan justru menguat
+
+Masalah **informed commitment**: keputusan ink hanya bermakna kalau pemain bisa
+memperkirakan apa yang ia beli. Kedua pemain sudah menggambar rahasia dan
+serentak (§6.2), jadi serangan lawan tidak diketahui; kalau hasil coretan
+sendiri juga tidak diketahui, commit jadi lempar koin — persis risiko §20
+*"Physics terasa acak → kekalahan tidak adil"*.
+
+Ini melahirkan butir arah 3 dan **sifat 8 di kontrak test**: `summary.heading`
+dan `summary.force` wajib stabil terhadap tremor kecil meskipun detail
+komponennya berubah. Itu memberi gigi pada "chaos di detail, bukan di kategori",
+dan mencapai tujuan keterbacaan saya tanpa memaksakan pemenang tunggal.
+
+Ward Reserve tetap milik Physics Toy — Spell Lab tidak punya lawan, jadi
+trade-off-nya tidak bisa dirasakan di sana. V2 hanya wajib menampilkan pembagian
+ink. Network Risk Spike tetap paralel sekarang.
+
+**Kompensasi atas batalnya playtest:** telemetry jadi syarat wajib V2, bukan
+follow-up. Orang pertama yang memakai V2 menghasilkan data yang tadinya diminta
+dari sesi observasi.
+
+**Tidak ada kode gameplay yang diubah sesi ini.** 119 test tetap hijau.
+
+---
+
 ## 2026-08-02 — Sesi 5: Keputusan lead atas proposal pivot
 
 **Pelaksana:** Claude (main lead)
