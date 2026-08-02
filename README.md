@@ -31,7 +31,7 @@ secondary effect. Reveal stays simultaneous and the server decides wind,
 collisions, fragments, Wobble, and score.
 
 ```bash
-npm test         # 191 tests
+npm test         # 195 tests
 npm run typecheck
 npm run build
 npm audit        # must stay at 0 vulnerabilities
@@ -48,6 +48,21 @@ falls back to the procedural Canvas wizard and never affects physics.
 The current environment reference is the PixelLab open-sky dream island shown
 in `roadmap.md`; the old cave images are historical only. Runtime island and
 crystal geometry remain procedural so visible surfaces match server collision.
+
+## Production deployment
+
+- Game: https://cozychaos.vercel.app
+- Source: https://github.com/nyo95/cozychaos
+- Vite is served at `/`; the authoritative server is a same-origin WebSocket
+  at `/ws` using Vercel's WebSocket Public Beta in region `sin1`.
+- `server/src/app.ts` is the shared transport factory. Local development binds
+  it to port 8787; `api/ws.ts` exports it without binding a port for Vercel.
+
+The deployed vertical slice is functional but not horizontally durable yet.
+Rooms live in one warm Function instance. At low demo traffic two players were
+verified through a complete Draw → Cast → Reveal → Resolve path, but production
+scaling requires shared room state/pub-sub (for example Redis) because sockets
+can land on different Vercel Function instances.
 
 ## Documents
 

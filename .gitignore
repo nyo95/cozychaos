@@ -11,6 +11,8 @@ Thumbs.db
 npm-debug.log*
 .env
 .env.local
+.env.*.local
+.vercel/
 .idea/
 .vscode/*
 !.vscode/extensions.json

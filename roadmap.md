@@ -1,6 +1,6 @@
 # Cozy Chaos — Product, Art, and Delivery Roadmap
 
-Last updated: 2026-08-02 (Session 17). This is the shared handoff for BK,
+Last updated: 2026-08-03 (Session 18). This is the shared handoff for BK,
 Claude, and Codex.
 
 > **Source of truth:** the active combat contract is
@@ -80,9 +80,11 @@ Implemented vertical slice:
 - Circle/capsule-vs-triangle collision with swept anti-tunnelling.
 - Responsive multiplayer browser UI; portrait 390×844 was verified without
   overflow in Session 11.
+- Production deployment at `https://cozychaos.vercel.app`: Vite frontend and
+  same-origin Vercel WebSocket endpoint `/ws` in `sin1`.
 
-Verification on 2026-08-02: **191 tests passed**. Typecheck, build, and audit 0
-also passed again in Session 17.
+Verification on 2026-08-03: **195 tests passed**. Typecheck, build, cloud build,
+audit 0, and a two-client production Resolve smoke test also passed.
 
 Relevant contracts:
 

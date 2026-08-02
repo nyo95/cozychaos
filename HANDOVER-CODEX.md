@@ -21,11 +21,20 @@ aktif selalu mengikuti override terbaru dan `roadmap.md`.
 > wire platform hasil generasi ke collision: lebarnya tidak cocok dengan arena
 > config. Runtime `drawIsland`/`drawCrystals` tetap mengikuti shared config.
 
+> **Update BK — Session 18 (2026-08-03):** repository aktif ada di
+> `https://github.com/nyo95/cozychaos` dan production deployment di
+> `https://cozychaos.vercel.app`. Frontend Vite memakai WebSocket same-origin
+> `/ws`; local server dan Vercel sama-sama memakai factory
+> `server/src/app.ts`. Production smoke test dua socket melewati Draw → Cast →
+> Reveal → Resolve dengan reveal/frame identik. Limitation aktif: RoomManager
+> masih in-memory per Function instance; sebelum traffic horizontal, pindahkan
+> room state/pub-sub ke shared store. Test suite sekarang 195.
+
 ---
 
 ## Ringkasan situasi
 
-Kode dalam kondisi sehat: **191 test hijau**, typecheck/build bersih, audit 0.
+Kode dalam kondisi sehat: **195 test hijau**, typecheck/build bersih, audit 0.
 Recovery repo dan sinkronisasi dokumen sudah selesai; cave preview juga sudah
 diganti pada Sesi 17. Utang aktif adalah human combat validation, physics
 library spike, hosted deployment, dan batch animasi setelah pilot diterima.
@@ -35,7 +44,7 @@ library spike, hosted deployment, dan batch animasi setelah pilot diterima.
 | Prioritas | Dokumen | Status |
 |---|---|---|
 | 1 | `DESIGN-RUNE-BODY-COMBAT.md` | **Benar.** Kontrak combat aktif, ditulis ulang Sesi 12. |
-| 2 | `shared/src/config/` + kode | **Benar.** 191 test menegakkannya. |
+| 2 | `shared/src/config/` + kode | **Benar.** 195 test menegakkannya. |
 | 3 | `PRD-AMENDMENTS.md` | Berlaku, menang atas PRD saat konflik. |
 | 4 | `PRD.md` | Berlaku kecuali §15 (lihat T4). |
 | 5 | `roadmap.md` | **Current through Session 17.** |

@@ -20,7 +20,7 @@ import {
   type ServerMessage,
   type SpellRecipe,
   type Vec2,
-} from '@cozy/shared';
+} from '../../shared/src/index.js';
 
 /**
  * One duel room, driven by an authoritative phase clock. PRD §15 — the server

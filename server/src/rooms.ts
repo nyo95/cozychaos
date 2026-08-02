@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import type { ServerMessage } from '@cozy/shared';
+import type { ServerMessage } from '../../shared/src/index.js';
 import { Room } from './room.js';
 
 /**

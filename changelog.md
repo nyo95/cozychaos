@@ -6,6 +6,61 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-03 — Sesi 18: publish GitHub dan deploy multiplayer ke Vercel
+
+**Pelaksana:** Codex. BK meminta seluruh repo dipublish ke
+`nyo95/cozychaos` dan game dideploy di Vercel. Repository remote awalnya kosong,
+jadi riwayat lokal dipush langsung sebagai bootstrap `master`.
+
+### GitHub
+
+- Remote `origin` ditambahkan ke `https://github.com/nyo95/cozychaos.git`.
+- Seluruh riwayat sampai commit art Session 17 dipush ke `master`.
+- GitHub CLI tidak tersedia; karena remote kosong dan scope bersih, publish
+  dilakukan dengan authenticated `git push`, tanpa PR bootstrap yang tidak
+  memiliki base branch.
+- Vercel project melaporkan repository tersebut sudah terhubung untuk build
+  Git berikutnya.
+
+### Vercel adaptation
+
+- `server/src/app.ts` mengekstrak HTTP + WebSocket transport tanpa bind port.
+  `server/src/index.ts` tetap entrypoint lokal port 8787, sedangkan
+  `api/ws.ts` mengekspor server yang sama ke Vercel WebSocket Public Beta.
+- Client HTTPS sekarang otomatis memakai same-origin `wss://<host>/ws`; HTTP
+  development tetap memakai port 8787. Empat regression test mengunci routing
+  explicit URL, production, LAN, dan custom dev port.
+- `vercel.json` membangun Vite ke `client/dist`, me-rewrite `/ws` ke Function,
+  mengaktifkan Fluid compute, dan menempatkan Function di `sin1`.
+- Cloud build pertama menemukan workspace bundling bug: Function tidak membawa
+  source `@cozy/shared`. Import production server dipindah ke relative shared
+  source path agar Vercel men-trace protocol, config, dan simulation code.
+
+### Production
+
+- URL: `https://cozychaos.vercel.app`
+- HTTP root: 200, frontend Vite tersaji.
+- Endpoint `/ws`: 426 untuk request HTTP biasa dan berhasil upgrade menjadi
+  WebSocket untuk client game.
+- Smoke test dua socket membuat/join room yang sama, melewati Draw dan Cast,
+  mengirim dua rune, lalu menerima Reveal serta frame Resolve yang byte-identik
+  dengan 22 partikel.
+
+### Verifikasi dan batas aktif
+
+| Cek | Hasil |
+|---|---|
+| `npm test` | **195 passed** (15 file) |
+| `npm run typecheck` | bersih, termasuk `api/ws.ts` |
+| `npm run build` | shared + client + server berhasil |
+| Vercel cloud build | bersih, audit install 0 vulnerability |
+| Production WebSocket | dua client, same room/reveal/frame |
+
+Room masih berada di memory satu warm Function instance. Demo traffic sudah
+terbukti bekerja, tetapi horizontal scaling belum durable: dua socket dapat
+mendarat di instance berbeda. Sebelum public traffic, pindahkan room state dan
+pub/sub ke shared Redis/store; jangan mengklaim deployment ini production-scale.
+
 ## 2026-08-02 — Sesi 17: ganti preview gua dengan arena PixelLab open-sky
 
 **Pelaksana:** Codex. BK menunjukkan bahwa `roadmap.md` masih menampilkan

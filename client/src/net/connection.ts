@@ -22,16 +22,28 @@ export interface ConnectionHandlers {
 
 /**
  * Resolves the server URL. In dev the Vite client and the ws server run on
- * different ports, so an explicit `VITE_SERVER_URL` wins; otherwise we assume
- * the server is reachable at the same host on the conventional port, which is
- * what a phone on the same network will use.
+ * different ports, so an explicit `VITE_SERVER_URL` wins. HTTPS deployments
+ * use the same-origin `/ws` route (Vercel); HTTP development keeps the
+ * conventional port so a phone on the same LAN can join.
  */
-export function resolveServerUrl(): string {
-  const explicit = import.meta.env['VITE_SERVER_URL'];
+interface ServerLocation {
+  readonly protocol: string;
+  readonly hostname: string;
+  readonly host: string;
+}
+
+export function resolveServerUrl(
+  current: ServerLocation = location,
+  env: Readonly<Record<string, unknown>> = import.meta.env,
+): string {
+  const explicit = env['VITE_SERVER_URL'];
   if (typeof explicit === 'string' && explicit.length > 0) return explicit;
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const port = import.meta.env['VITE_SERVER_PORT'] ?? '8787';
-  return `${protocol}//${location.hostname}:${port}`;
+  if (current.protocol === 'https:') return `wss://${current.host}/ws`;
+  const configuredPort = env['VITE_SERVER_PORT'];
+  const port = typeof configuredPort === 'string' && configuredPort.length > 0
+    ? configuredPort
+    : '8787';
+  return `ws://${current.hostname}:${port}`;
 }
 
 export function connect(url: string, handlers: ConnectionHandlers): Connection {
