@@ -42,6 +42,10 @@ human-validated. The deterministic handwritten physics is intentionally thin;
 a physics-library spike, hosted deployment, movement, lag simulation, and
 real-device playtests are still owed.
 
+Character presentation currently uses a PixelLab runtime pilot: cyan idle/cast
+sprites plus a deterministic pink palette derivative. Sprite decode failure
+falls back to the procedural Canvas wizard and never affects physics.
+
 ## Documents
 
 | File | What it is |
@@ -50,7 +54,7 @@ real-device playtests are still owed.
 | `PRD-AMENDMENTS.md` | PRD defect resolutions; overrides the PRD on conflicts. |
 | `DESIGN-SPELL-COMPOSITION.md` | Current wild-composition + Ink implementation contract. |
 | `DESIGN-RUNE-BODY-COMBAT.md` | **Current combat contract:** Ink/mass trade-off, particle/bond math, conservation, and meta knobs. |
-| `ASSET-PROVENANCE.md` | Generated art inventory, prompts, post-processing, and integration guardrails. |
+| `ASSET-PROVENANCE.md` | ImageGen + PixelLab inventory, prompts, rejected variants, processing, and integration guardrails. |
 | `roadmap.md` | Product context, generated images, PixelLab pilot, and staged handoff for Claude/Codex. |
 | `DESIGN-PROPOSAL-WILD-SPELLS.md` | Historical proposal that started the pivot. |
 | `DECISION-WILD-SPELLS.md` | Decision trail and overridden arguments. |

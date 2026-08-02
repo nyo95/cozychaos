@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "status": "runtime-pilot",
+  "generatedAt": "2026-08-02",
+  "provider": "PixelLab API v2",
+  "character": {
+    "name": "Cozy Chaos Cyan Wizard Pilot",
+    "view": "side",
+    "requestedSize": { "width": 96, "height": 96 },
+    "sourceCanvas": { "width": 176, "height": 176 },
+    "runtimeDirection": "east",
+    "pivot": { "x": 92, "y": 131 },
+    "worldCanvasSize": 0.48
+  },
+  "teams": {
+    "cyan": {
+      "method": "PixelLab source output",
+      "idleSheet": "/assets/pixellab-pilot/runtime/cyan-idle-east.png",
+      "castSheet": "/assets/pixellab-pilot/runtime/cyan-cast-east.png"
+    },
+    "pink": {
+      "method": "deterministic local palette derivative of cyan frames",
+      "idleSheet": "/assets/pixellab-pilot/runtime/pink-idle-east.png",
+      "castSheet": "/assets/pixellab-pilot/runtime/pink-cast-east.png"
+    }
+  },
+  "animations": {
+    "idle": {
+      "frameCount": 6,
+      "frameWidth": 176,
+      "frameHeight": 176,
+      "frameMs": 160,
+      "playback": "loop"
+    },
+    "cast": {
+      "frameCount": 8,
+      "frameWidth": 176,
+      "frameHeight": 176,
+      "playback": "once across the authoritative cast phase"
+    }
+  },
+  "sourceExports": {
+    "baseRotations": "cyan/base/*.png",
+    "idleFrames": "cyan/idle/east/*.png",
+    "acceptedCastFrames": "cyan/cast-clean-v2/east/*.png",
+    "rejectedCastFrames": {
+      "path": "cyan/cast/east/*.png",
+      "status": "rejected-baked-spell-effect",
+      "reason": "The first cast generation baked cyan magic arcs into frame 4; gameplay spell effects must remain procedural."
+    }
+  },
+  "runtimeRules": {
+    "mirroring": "slot 1 mirrors east-facing frames toward its rival",
+    "collision": "sprites are presentation only and never determine collision",
+    "fallback": "the procedural canvas wizard remains active until each requested sheet decodes",
+    "credentials": "no API token or remote access identifier is stored in this manifest"
+  }
+}

@@ -1,8 +1,9 @@
 # Asset Provenance Register
 
-Status: Arena dan reflector sheet **OBSOLETE** sejak Sesi 12 (arena pindah ke
-floating dream island). Wizard cutout masih kandidat. Tidak ada yang ter-wire
-ke renderer.
+Status: PixelLab wizard pilot **ACTIVE** sebagai presentation layer dengan
+procedural fallback. Arena dan reflector ImageGen **OBSOLETE** sejak Sesi 12
+(arena pindah ke floating dream island). Dua wizard ImageGen lama tetap
+kandidat dan tidak ter-wire ke renderer.
 
 All files below were generated for this repository on 2026-08-02 with the
 built-in OpenAI ImageGen workflow. The only visual references were the existing
@@ -66,3 +67,49 @@ green; no labels, particles, moss, shadows, logos, or watermark.
   readability test at actual mobile render size.
 - Keep the existing programmatic renderer as fallback until image decode and
   responsive cropping are verified in two browsers.
+
+## PixelLab runtime pilot — Session 16
+
+Product owner explicitly deferred the Stage 2 human playtest gate and selected
+PixelLab as the next character-art direction. Generation used PixelLab API v2
+directly; no API token, account identifier, background-job identifier, or
+remote character access identifier is stored in the repository.
+
+### Output
+
+| Path | Origin | Status |
+|---|---|---|
+| `client/public/assets/pixellab-pilot/cyan/base/` | PixelLab v3, eight stored rotations | source |
+| `client/public/assets/pixellab-pilot/cyan/idle/east/` | PixelLab v3, six frames | accepted |
+| `client/public/assets/pixellab-pilot/cyan/cast/east/` | PixelLab v3, eight frames | rejected: baked spell arcs |
+| `client/public/assets/pixellab-pilot/cyan/cast-clean-v2/east/` | PixelLab v3, eight frames | accepted |
+| `client/public/assets/pixellab-pilot/pink/` | deterministic local cyan→pink palette derivative | accepted |
+| `client/public/assets/pixellab-pilot/runtime/` | packed one-row sheets consumed by Canvas | active pilot |
+
+The base prompt requested a compact semi-chibi side-view wizard with an
+oversized crooked cyan hat, short robe, simple cream face, tiny boots, empty
+hands, selective dark-indigo pixel outline, and readability at 48 px. It
+explicitly prohibited weapons, staff, projectile, text, UI, shadow, and extra
+characters.
+
+The idle prompt requested breathing plus a tiny hat-tip movement with fixed
+feet and a seamless loop. The accepted cast revision requested **body motion
+only**, fixed feet/pivot, and fully transparent pixels outside the character;
+it explicitly prohibited arcs, aura, glow, trails, particles, projectile,
+props, and shadows. The first cast is deliberately retained as rejected source
+so a later agent does not accidentally regenerate or ship the same failure.
+
+### Processing and QA
+
+- PixelLab returned a padded 176×176 source canvas from the requested 96×96
+  character size. Runtime pivot is `(92, 131)` and remains presentation data.
+- Idle alpha bounds keep the same bottom pixel on all six frames; horizontal
+  centre drift is 0.5 source pixel.
+- Accepted cast bottom drift is one source pixel; horizontal centre drift is
+  six source pixels during the deliberate forward gesture.
+- Pink is derived locally by hue-remapping only saturated cyan/blue clothing
+  pixels; skin and deep-indigo outline are preserved. It does not spend a
+  second stochastic generation and therefore cannot drift in pose.
+- Runtime sheets use nearest-neighbour rendering. Slot 1 mirrors the east-facing
+  frames. Physics position, collision radius, Wobble, and score remain server
+  data; missing images fall back to the procedural wizard.

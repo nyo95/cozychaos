@@ -10,6 +10,11 @@ import {
 import { PALETTE, mix, withAlpha } from './palette.js';
 import { toPixels, toScreen, visibleBounds, type Viewport } from './viewport.js';
 import type { SceneEffects } from './effects.js';
+import {
+  WIZARD_SPRITE_LAYOUT,
+  wizardSpriteFrame,
+  type WizardAnimation,
+} from './wizardSprites.js';
 
 const SLOT_COLOUR: Readonly<Record<PlayerSlot, string>> = {
   0: '#5fe0f0',
@@ -27,6 +32,7 @@ export interface MatchScene {
   readonly localStroke: readonly Vec2[];
   readonly drawing: boolean;
   readonly casting: boolean;
+  readonly castProgress: number;
   readonly castOrigin: Vec2 | null;
   readonly castDirection: Vec2 | null;
   readonly timeMs: number;
@@ -35,8 +41,8 @@ export interface MatchScene {
 }
 
 /**
- * Pure presentation. Cave, rune matter, and snapshots are all server-owned;
- * nothing drawn here can feed back into simulation.
+ * Pure presentation. Dream-sky scenery, rune matter, and snapshots are all
+ * server-owned; nothing drawn here can feed back into simulation.
  *
  * The arena is the floating dream island of PRD §1, not the grey cave the
  * previous build drifted into. That drift was not only an art problem: a dark,
@@ -62,7 +68,16 @@ export function drawMatchScene(
     for (const bond of scene.snapshot.bonds) drawBond(ctx, viewport, bond);
     for (const particle of scene.snapshot.particles) drawParticle(ctx, viewport, particle);
     for (const body of scene.snapshot.bodies) {
-      drawWizard(ctx, viewport, body, body.slot, body.slot === scene.localSlot, scene.timeMs);
+      drawWizard(
+        ctx,
+        viewport,
+        body,
+        body.slot,
+        body.slot === scene.localSlot,
+        scene.timeMs,
+        scene.casting ? 'cast' : 'idle',
+        scene.castProgress,
+      );
     }
   }
   scene.effects.draw(ctx, viewport, scene.timeMs);
@@ -480,6 +495,8 @@ function drawWizard(
   slot: PlayerSlot,
   isLocal: boolean,
   timeMs: number,
+  animation: WizardAnimation,
+  castProgress: number,
 ): void {
   const colour = SLOT_COLOUR[slot];
   const bob = Math.sin(timeMs / 760 + slot * 2) * 0.006;
@@ -503,6 +520,31 @@ function drawWizard(
     ctx.beginPath();
     ctx.arc(base.x, base.y - unit * 0.9, unit * 1.55, -Math.PI / 2, -Math.PI / 2 + TAU * wobbleFraction);
     ctx.stroke();
+  }
+
+  const sprite = wizardSpriteFrame(slot, animation, timeMs, castProgress);
+  if (sprite) {
+    const canvasPixels = toPixels(viewport, WIZARD_SPRITE_LAYOUT.worldCanvasSize);
+    const scale = canvasPixels / WIZARD_SPRITE_LAYOUT.canvasSize;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(base.x, base.y);
+    if (slot === 1) ctx.scale(-1, 1);
+    ctx.drawImage(
+      sprite.image,
+      sprite.sourceX,
+      sprite.sourceY,
+      sprite.sourceSize,
+      sprite.sourceSize,
+      -WIZARD_SPRITE_LAYOUT.pivotX * scale,
+      -WIZARD_SPRITE_LAYOUT.pivotY * scale,
+      canvasPixels,
+      canvasPixels,
+    );
+    ctx.restore();
+    if (isLocal) drawLocalMarker(ctx, base, unit, timeMs);
+    ctx.globalAlpha = 1;
+    return;
   }
 
   // Robe.
@@ -577,17 +619,24 @@ function drawWizard(
   ctx.fill();
   ctx.restore();
 
-  if (isLocal) {
-    const markerY = base.y - unit * 3.5 + Math.sin(timeMs / 520) * unit * 0.12;
-    ctx.fillStyle = PALETTE.ink;
-    ctx.beginPath();
-    ctx.moveTo(base.x, markerY + unit * 0.42);
-    ctx.lineTo(base.x - unit * 0.3, markerY - unit * 0.1);
-    ctx.lineTo(base.x + unit * 0.3, markerY - unit * 0.1);
-    ctx.closePath();
-    ctx.fill();
-  }
+  if (isLocal) drawLocalMarker(ctx, base, unit, timeMs);
   ctx.globalAlpha = 1;
+}
+
+function drawLocalMarker(
+  ctx: CanvasRenderingContext2D,
+  base: Vec2,
+  unit: number,
+  timeMs: number,
+): void {
+  const markerY = base.y - unit * 3.5 + Math.sin(timeMs / 520) * unit * 0.12;
+  ctx.fillStyle = PALETTE.ink;
+  ctx.beginPath();
+  ctx.moveTo(base.x, markerY + unit * 0.42);
+  ctx.lineTo(base.x - unit * 0.3, markerY - unit * 0.1);
+  ctx.lineTo(base.x + unit * 0.3, markerY - unit * 0.1);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function drawStroke(

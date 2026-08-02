@@ -527,8 +527,9 @@ export class MatchGame {
 
   private loop(timeMs: number): void {
     const room = this.room;
+    let remaining = 0;
     if (room) {
-      const remaining = Math.max(0, room.phaseRemainingMs - (performance.now() - this.roomReceivedAt));
+      remaining = Math.max(0, room.phaseRemainingMs - (performance.now() - this.roomReceivedAt));
       this.elements.timer.textContent = room.players.filter((player) => player.connected).length < 2
         ? '--'
         : `${Math.ceil(remaining / 1000)}s`;
@@ -554,6 +555,9 @@ export class MatchGame {
       localStroke: room?.phase === 'draw' || room?.phase === 'cast' ? this.capture.stroke : [],
       drawing: room?.phase === 'draw',
       casting: room?.phase === 'cast',
+      castProgress: room?.phase === 'cast'
+        ? 1 - Math.min(1, remaining / CONFIG.phases.castMs)
+        : 0,
       castOrigin: this.castOrigin,
       castDirection: this.castDirection,
       timeMs,

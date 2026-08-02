@@ -6,6 +6,15 @@ bagian "Decision ownership" di `roadmap.md` §8.
 **Baca ini dulu sebelum menyentuh file mana pun.** Dokumen ini berurutan.
 Task di Stage 1 memblokir semua yang di bawahnya. Jangan lompat.
 
+> **Override BK — Session 16 (2026-08-02):** Stage 1 T1–T5 sudah selesai dan
+> tersimpan dalam lima commit. BK kemudian secara eksplisit menunda Stage 2
+> playtest dan memerintahkan maju langsung dengan PixelLab. Karena keputusan
+> product owner ini lebih baru, label “Stage 3 DIBLOKIR” di bawah adalah riwayat
+> keputusan lama, bukan blocker aktif. PixelLab Stage 3A (cyan base + idle +
+> clean cast, pink palette derivative, runtime loader, procedural fallback)
+> dikerjakan pada Session 16. T6–T7 tetap utang sebelum balancing/public beta.
+> State terbaru ada di `roadmap.md` §5–6 dan entri teratas `changelog.md`.
+
 ---
 
 ## Ringkasan situasi

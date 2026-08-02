@@ -6,6 +6,61 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 16: PixelLab pilot di-generate dan masuk runtime
+
+**Pelaksana:** Codex. BK secara eksplisit meminta melewati gate playtest dan
+maju langsung dengan PixelLab. Override ini dicatat di `roadmap.md` dan
+`HANDOVER-CODEX.md`; T6–T7 tetap utang sebelum balancing/public beta, tetapi
+tidak lagi memblokir character-art pilot.
+
+### Output PixelLab
+
+- API resmi PixelLab v2 dipakai langsung; token tidak ditulis ke repo,
+  environment, manifest, changelog, atau source.
+- Base character: cyan side-view pixel wizard, delapan source rotation pada
+  canvas 176×176 (requested character size 96×96), tanpa staff/projectile.
+- Idle: 6 frame, bottom pivot identik dan centre drift 0.5 source pixel.
+- Cast v1: **ditolak**, karena frame tengah membakar dua arc cyan ke karakter.
+  Image-asset workflow memaksa inspeksi visual sebelum integrasi; tanpa gate
+  ini, efek yang seharusnya procedural akan masuk sebagai pixel permanen.
+- Cast clean v2: 8 frame body-motion-only, tanpa spell effect; bottom drift 1
+  source pixel dan forward-motion centre drift 6 source pixel.
+- Pink team dibuat sebagai deterministic local palette derivative dari frame
+  cyan. Pose/pivot identik dan tidak menghabiskan stochastic generation kedua.
+- Total terpakai: 14 dari 40 trial generations; 26 tersisa setelah generation.
+
+### Runtime integration
+
+- Empat packed sheet hidup di
+  `client/public/assets/pixellab-pilot/runtime/`; raw base/idle/cast accepted dan
+  rejected tetap disimpan sebagai provenance.
+- `wizardSprites.ts` melakukan lazy preload/decode, nearest-neighbour frame
+  selection, idle looping, dan satu cast sequence yang dipetakan ke progress
+  phase Cast 2 detik.
+- Slot cyan memakai east-facing frame; slot pink memakai palette derivative
+  yang di-mirror sehingga keduanya selalu menghadap rival.
+- Pivot sprite hanya presentation data. Server snapshot masih memiliki posisi,
+  collision radius, Wobble, dan score. Sheet belum siap/404 → procedural wizard,
+  bukan karakter hilang.
+
+### Verifikasi
+
+| Cek | Hasil |
+|---|---|
+| `npm test` | **191 passed** (14 file) |
+| `npm run typecheck` | bersih |
+| `npm run build` | shared + client + server berhasil |
+| Browser desktop, dua client | cyan/pink tampil, saling menghadap, pivot di island, tidak ada console warning/error |
+| Browser 390×844 | cast pose tampil, `scrollWidth = innerWidth = 390`, tidak ada overflow atau console error |
+| Credential scan | tidak ada token/API credential di tracked text |
+
+### Keputusan yang belum otomatis dibuat
+
+PixelLab sekarang dipilih untuk **character presentation**, bukan untuk fixed
+spell sprites. Literal rune matter, fragments, wind, reflector collision, dan
+damage tetap procedural. Hit/KO adalah batch berikutnya setelah BK menerima
+idle/cast pada ukuran game sebenarnya.
+
 ## 2026-08-02 — Sesi 15: Pulihkan repo dan sinkronkan kontrak produk
 
 **Pelaksana:** Codex. Stage 1 T1–T5 dari `HANDOVER-CODEX.md` dieksekusi.

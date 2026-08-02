@@ -131,32 +131,39 @@ be tested before integration. Exact status, prompts, and processing are in
 `ASSET-PROVENANCE.md`; machine-readable metadata is in
 `client/public/assets/generated/manifest.json`.
 
-## 5. PixelLab status and future pilot
+## 5. PixelLab runtime pilot
 
-PixelLab is **not connected** and no PixelLab generation has been run. A token
-was pasted into chat, so it must be revoked/rotated before later use. It is not
-stored in this repository, documentation, or source code.
+BK explicitly overrode the playtest-first gate in Session 16 and selected
+PixelLab as the current character-art route. Codex used the official PixelLab
+API v2 directly and generated:
 
-When the art gate opens, the smallest useful PixelLab experiment is one cyan
-wizard at 96×96 or 128×128 with a stable bottom-centre pivot:
+- one cyan 8-direction source character, with only `east` consumed at runtime;
+- six-frame neutral idle;
+- eight-frame role-neutral cast;
+- a deterministic local cyan→pink palette derivative, so the second team
+  cannot drift in pose or silhouette;
+- four packed runtime sheets plus a machine-readable manifest.
 
-1. six-frame neutral idle;
-2. eight-frame role-neutral cast gesture;
-3. only after those pass: hit and KO.
+The first cast attempt was rejected because PixelLab baked cyan magic arcs into
+the middle frame. A single targeted revision removed all visual spell effects;
+the clean v2 is the only cast consumed by the renderer. The rejected frames are
+retained and labelled so Claude can see why they must not ship.
 
-Acceptance is visual at 48 px and 80 px: no hat/face/robe/palette drift, no
-pivot jitter, clean transparency, a seamless idle loop, consistent frame
-bounds, and no projectile baked into character frames. If two controlled
-attempts fail, stop prompt-chasing and prefer a 3D→2D sprite pipeline or the
-painterly programmatic fallback.
+The pilot spent 14 of 40 trial generations; 26 remained at the end of asset
+generation. The API token is not stored in source, docs, manifest, environment,
+or git. Because it was pasted into chat, rotate it after this session.
 
-Any future replacement token belongs in a local secret store (for example an
-MCP authorization header), never in chat or git. PixelLab output, if approved,
-goes into a new `client/public/assets/pixellab-pilot/` folder with a manifest.
+Runtime integration is intentionally one-way: PixelLab draws the wizard, while
+server snapshots still own position, Wobble, collision, and score. Canvas
+nearest-neighbour rendering uses a stable `(92, 131)` pivot. If a sprite sheet
+has not decoded, the existing procedural wizard draws instead.
+
+Files and exact QA notes live in `ASSET-PROVENANCE.md` and
+`client/public/assets/pixellab-pilot/manifest.json`.
 
 ## 6. Delivery roadmap
 
-### Stage 1 — Repository recovery and source-truth sync
+### Stage 1 — Repository recovery and source-truth sync — complete
 
 - Align roadmap, README, provenance, and manifest with the active combat code.
 - Amend the obsolete Three.js requirement to layered Canvas 2D.
@@ -164,9 +171,11 @@ goes into a new `client/public/assets/pixellab-pilot/` folder with a manifest.
   server, client, art candidates, then documentation.
 - Gate: 189 tests, typecheck, build, audit 0, and a clean worktree.
 
-### Stage 2 — Human combat validation
+### Stage 2 — Human combat validation — deferred by BK
 
-This is the next product blocker. Before producing more art:
+This gate was intentionally skipped in Session 16 to advance the PixelLab
+direction. The debt is deferred, not deleted. Before meta balancing, public
+beta, or cosmetic production batches:
 
 - export per-Turn telemetry from authoritative server snapshots;
 - run 10+ human playtests;
@@ -175,19 +184,20 @@ This is the next product blocker. Before producing more art:
   per KO, match duration, and “my drawing was not read” complaints;
 - define a pass threshold and a design response for every metric.
 
-The full execution contract is T6–T7 in `HANDOVER-CODEX.md`.
+The full original execution contract remains T6–T7 in `HANDOVER-CODEX.md`.
 
-### Stage 3 — Art pipeline decision (blocked by Stage 2)
+### Stage 3 — PixelLab characters — active
 
-BK chooses one direction after combat validation:
+- **3A complete:** cyan base, idle, clean cast, pink palette derivative,
+  sprite-sheet loader, procedural fallback.
+- **3B next:** add hit and KO only after the integrated pilot is accepted at
+  real 48 px and 80 px render sizes.
+- **3C later:** produce a separately generated pink character only if the
+  deterministic palette derivative proves too similar; do not spend credits
+  merely to duplicate motion.
 
-1. preferred consistency route: 3D source → rendered 2D sprite sheets;
-2. controlled PixelLab pixel-art A/B pilot; or
-3. retain painterly static/programmatic characters.
-
-Do not build multiple complete asset pipelines before comparing a tiny pilot at
-real mobile render size. Runtime asset loading must retain the programmatic
-renderer as fallback and must never affect authoritative collision geometry.
+Do not generate spell projectiles as sprite assets. The player's literal rune
+matter and its fragments remain procedural and physics-owned.
 
 ### Deferred beyond the MVP
 
