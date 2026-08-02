@@ -14,7 +14,7 @@ export type SpellFamily = 'stroke' | 'loop' | 'spiral' | 'angular' | 'wisp';
 export type MotifKind = 'thrust' | 'loop' | 'spiral' | 'bounce' | 'unstable' | 'wisp';
 
 /** Match phases within a single Turn. PRD §6. */
-export type Phase = 'setup' | 'draw' | 'reveal' | 'resolve' | 'score';
+export type Phase = 'setup' | 'draw' | 'cast' | 'reveal' | 'resolve' | 'score';
 
 /**
  * Where a spell is spawned. PRD-AMENDMENTS A-05.
@@ -31,6 +31,8 @@ export interface PhaseConfig {
   readonly setupMs: number;
   /** PRD §6.2 — world freezes, both players draw in secret. */
   readonly drawMs: number;
+  /** Short direction-only gesture after the rune is complete. */
+  readonly castMs: number;
   /** PRD §6.3 — both runes shown as visual anticipation. */
   readonly revealMs: number;
   /** PRD §6.4 — maximum simulation time; resolve may end early when settled. */
@@ -45,7 +47,14 @@ export interface InkConfig {
    * stroke length. PRD §7.2, scope fixed by A-01.
    */
   readonly total: number;
-  /** Ink consumed per unit of normalised arc length. */
+  /**
+   * Ink consumed per unit of normalised arc length.
+   *
+   * This is measured in arena units, and the Draw camera is zoomed in, so the
+   * constant is calibrated against `camera.drawHalfWidth`: the same finger
+   * sweep must cost the same Ink whether or not the camera is zoomed. Changing
+   * the Draw zoom without rescaling this silently changes the Ink economy.
+   */
   readonly costPerUnitLength: number;
   /** Ink charged the moment a stroke begins, to discourage stroke spam. */
   readonly costToStart: number;
@@ -68,6 +77,11 @@ export interface WobbleConfig {
   readonly max: number;
   /** Wobble added per unit of impact impulse absorbed. */
   readonly gainPerImpulse: number;
+  /**
+   * Upward share added to every impact, as a fraction of its magnitude.
+   * Knockback has to lift a wizard clear of ground friction or it does nothing.
+   */
+  readonly knockbackLift: number;
   /**
    * Knockback multiplier at `max` Wobble. At zero Wobble the multiplier is
    * 1.0 and it interpolates linearly to this value.
@@ -113,6 +127,166 @@ export interface AimConfig {
    * the edge rather than rejected — PRD §7.1 forbids total failure.
    */
   readonly maxCastRadius: number;
+  /**
+   * Aim is clamped to this cone around the opponent-facing direction.
+   *
+   * Wide enough that a near-vertical lob is legal, because a steep lob is how
+   * a player turns a rune into a screen that lands in front of themselves.
+   * Narrowing this removes the defensive half of the game.
+   */
+  readonly maxAngleFromOpponent: number;
+  /** Forward offset between the wizard and the centre of a spawned rune body. */
+  readonly spawnForward: number;
+  /**
+   * Kinetic energy every cast is launched with, regardless of rune mass.
+   *
+   * This is the whole offence/defence dial. Speed is `sqrt(2E/m)`, so a heavy
+   * rune (lots of Ink) leaves slowly and lands close as a wall, while a light
+   * rune leaves fast and reaches the opponent. Ballistic range scales with
+   * `v²`, i.e. with `1/m`, so the Ink spent on matter is literally the Ink not
+   * available for reach. Cast magnitude never contributes.
+   */
+  readonly launchEnergy: number;
+  /** Clamps keep the `1/sqrt(m)` curve finite at both extremes. */
+  readonly minLaunchSpeed: number;
+  readonly maxLaunchSpeed: number;
+}
+
+/**
+ * Camera framing. Shared, not client-local, because Draw zoom rescales the
+ * arena distance a stroke covers and therefore feeds back into Ink cost.
+ */
+export interface CameraConfig {
+  /** Arena half-width visible while both players draw and aim. */
+  readonly drawHalfWidth: number;
+  /** Arena half-width visible during Reveal, Resolve, and Score. */
+  readonly fullHalfWidth: number;
+  /** Vertical centre of the Draw framing, in arena units. */
+  readonly drawCenterY: number;
+  readonly fullCenterY: number;
+  /** Horizontal offset from the local wizard toward the arena centre. */
+  readonly drawCenterBias: number;
+  /** Fraction of the remaining gap closed per second while easing. */
+  readonly easePerSecond: number;
+}
+
+export interface WindConfig {
+  /** Horizontal acceleration is selected from these signed magnitudes per Round. */
+  readonly accelerationLevels: readonly number[];
+  /** Small vertical lift keeps wind readable without overpowering gravity. */
+  readonly verticalLiftFraction: number;
+}
+
+export interface HazardSpikeConfig {
+  readonly kind: 'stalactite' | 'stalagmite';
+  readonly base: Readonly<{ x: number; y: number }>;
+  readonly tip: Readonly<{ x: number; y: number }>;
+  readonly halfWidth: number;
+}
+
+export interface HazardConfig {
+  /** Seeded once per Round; the resulting layout is shared by server and clients. */
+  readonly generation: Readonly<{
+    readonly minCount: number;
+    readonly maxCount: number;
+    readonly xRange: readonly [number, number];
+    /** Fraction of each horizontal slot available for seeded jitter. */
+    readonly slotJitterFraction: number;
+    readonly halfWidthRange: readonly [number, number];
+    readonly stalagmiteTipYRange: readonly [number, number];
+    readonly stalactiteTipYRange: readonly [number, number];
+    readonly ceilingY: number;
+    /** Ground spikes inside this distance of a spawn become ceiling spikes. */
+    readonly spawnClearance: number;
+  }>;
+  /** Numerical separation after resolving a collision, in arena units. */
+  readonly collisionSkin: number;
+  readonly spellRestitution: number;
+  readonly spellEnergyLossFraction: number;
+  readonly playerRestitution: number;
+  readonly playerImpact: number;
+}
+
+/** All construction and collision tunables for physical rune bodies. */
+export interface RuneBodyConfig {
+  readonly minParticles: number;
+  readonly maxParticles: number;
+  readonly particleRadius: number;
+  readonly spawnHeight: number;
+  readonly minExtent: number;
+  readonly maxExtent: number;
+  /** Ink → mass. With `aim.launchEnergy` fixed, this also sets launch speed. */
+  readonly massPerInk: number;
+  /**
+   * Floor on mass per particle. Kept small on purpose: if this floor dominates
+   * at low Ink, light runes stop being faster than heavy ones and the entire
+   * offence/defence dial collapses.
+   */
+  readonly minimumMass: number;
+  /**
+   * Ink → magical charge. Energy is the fuel that lets matter still act; it is
+   * NOT the knockback quantity. Knockback comes from momentum in `world.ts`.
+   */
+  readonly energyPerInk: number;
+  readonly baseParticleIntegrity: number;
+  readonly integrityPerInk: number;
+  readonly bondStiffness: number;
+  readonly bondDamping: number;
+  readonly bondBaseStrength: number;
+  readonly bondCollisionRadius: number;
+  readonly bondEndCapFraction: number;
+  readonly intersectionDistance: number;
+  readonly intersectionStrengthBonus: number;
+  readonly maxCrossBonds: number;
+  readonly breakStrain: number;
+  readonly particleRestitution: number;
+  /**
+   * Relative approach speed × reduced mass → dissipated collision energy. This
+   * is the quantity two colliding runes destroy in each other.
+   */
+  readonly collisionEnergyScale: number;
+  /**
+   * Multiplier on the mass-weighted share each side loses when opposing runes
+   * meet. Each side's share is the *opponent's* fraction of the combined mass,
+   * so a heavy rune shrugs off a light one and a light one is shredded. That
+   * asymmetry is what makes a heavy rune function as a shield.
+   */
+  readonly mutualDamageScale: number;
+  readonly integrityDamageScale: number;
+  /**
+   * Fraction of a particle's momentum (`|v| × m`) delivered to a wizard as
+   * impulse. Momentum, not energy: mixing the two is dimensionally meaningless
+   * and was the reason weak grazes used to knock players about.
+   */
+  readonly impactTransfer: number;
+  /**
+   * Charge at which a particle delivers its full momentum. Below this the hit
+   * scales down linearly, so spent matter fades out instead of stopping dead.
+   */
+  readonly energyForFullImpact: number;
+  /** Charge burned per unit of impulse delivered to a wizard. */
+  readonly energyCostPerImpulse: number;
+  /**
+   * How matter settles onto the island. Low restitution and high friction are
+   * what let a heavy rune come to rest and act as a standing wall instead of
+   * skidding away or bouncing off into the void.
+   */
+  readonly groundRestitution: number;
+  readonly groundFriction: number;
+  /**
+   * Charge lost per ground impact. Small: landed matter has to stay dangerous,
+   * or a defensive rune would be inert the moment it touched down.
+   */
+  readonly groundEnergyLossFraction: number;
+  /** Below this downward speed a ground contact is resting, not an impact. */
+  readonly groundRestingSpeed: number;
+  readonly airDrag: number;
+  readonly gravityScale: number;
+  readonly hazardIntegrityDamage: number;
+  readonly powerlessEnergyThreshold: number;
+  readonly particleKillWallMultiplier: number;
+  readonly particleCeilingY: number;
+  readonly lifetimeMs: number;
 }
 
 export interface ReconnectConfig {
@@ -170,6 +344,42 @@ export interface ArenaConfig {
   readonly gravity: number;
   /** PRD §9 — the only MVP modifier: everything floats longer. */
   readonly lowGravityMultiplier: number;
+}
+
+export interface CombatConfig {
+  /** Directional component strength → projectile launch speed. */
+  readonly projectileSpeedScale: number;
+  /** Minimum projectile travel speed, so a weak thrust still moves. */
+  readonly projectileMinSpeed: number;
+  /** Component strength → impulse magnitude on a hit, before Wobble scaling. */
+  readonly impulseScale: number;
+  /** Radial push per second applied by an overlapping Bubble Ward (loop). */
+  readonly loopPush: number;
+  /** Inward pull per second during a Vortex's pull phase. */
+  readonly vortexPull: number;
+  /** Outward impulse at the moment a Vortex releases. */
+  readonly vortexRelease: number;
+  /** Fraction of a Vortex's lifetime spent pulling before it releases. */
+  readonly vortexPullFraction: number;
+  /** Hits a directional projectile lands before it expires. */
+  readonly maxHits: number;
+  /** Random heading jitter (radians) applied to an `unstable` projectile. */
+  readonly unstableJitter: number;
+}
+
+export interface PlayerBodyConfig {
+  /** Collision radius of a wizard, in arena units. */
+  readonly radius: number;
+  /** Body mass. Heavier = harder to knock around at equal Wobble. */
+  readonly mass: number;
+  /** |X| of each player's spawn point. Player 0 left, player 1 right. */
+  readonly spawnX: number;
+  /** Restitution against the ground. Low, so landings do not bounce forever. */
+  readonly groundRestitution: number;
+  /** Horizontal drag per second while grounded, so slides settle. */
+  readonly groundFriction: number;
+  /** Air drag per second, so launches decay instead of drifting forever. */
+  readonly airDrag: number;
 }
 
 export interface SimulationConfig {
@@ -334,9 +544,15 @@ export interface GameConfig {
   readonly scoring: ScoringConfig;
   readonly movement: MovementConfig;
   readonly aim: AimConfig;
+  readonly camera: CameraConfig;
+  readonly wind: WindConfig;
+  readonly hazards: HazardConfig;
+  readonly runeBody: RuneBodyConfig;
   readonly reconnect: ReconnectConfig;
   readonly strokeLimits: StrokeLimits;
   readonly arena: ArenaConfig;
+  readonly player: PlayerBodyConfig;
+  readonly combat: CombatConfig;
   readonly simulation: SimulationConfig;
   readonly classifier: ClassifierThresholds;
   readonly assist: Readonly<Record<AssistLevel, AssistConfig>>;

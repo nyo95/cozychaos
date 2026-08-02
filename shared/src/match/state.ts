@@ -87,6 +87,8 @@ export function phaseDurationMs(phase: Phase): number {
       return p.setupMs;
     case 'draw':
       return p.drawMs;
+    case 'cast':
+      return p.castMs;
     case 'reveal':
       return p.revealMs;
     case 'resolve':
@@ -224,6 +226,8 @@ export function nextPhase(phase: Phase): Phase {
     case 'setup':
       return 'draw';
     case 'draw':
+      return 'cast';
+    case 'cast':
       return 'reveal';
     case 'reveal':
       return 'resolve';

@@ -179,23 +179,24 @@ describe('A-03 — Resolve is a pure simulation', () => {
     // during Resolve, which is live input — it makes both claims false.
     const state = createMatch(1);
     expect(canMove({ ...state, phase: 'setup' })).toBe(true);
-    for (const phase of ['draw', 'reveal', 'resolve', 'score'] as const) {
+    for (const phase of ['draw', 'cast', 'reveal', 'resolve', 'score'] as const) {
       expect(canMove({ ...state, phase }), phase).toBe(false);
     }
   });
 });
 
 describe('phase cycle (PRD §6)', () => {
-  it('cycles Setup → Draw → Reveal → Resolve → Score → Setup', () => {
+  it('cycles Setup → Draw → Cast → Reveal → Resolve → Score → Setup', () => {
     expect(nextPhase('setup')).toBe('draw');
-    expect(nextPhase('draw')).toBe('reveal');
+    expect(nextPhase('draw')).toBe('cast');
+    expect(nextPhase('cast')).toBe('reveal');
     expect(nextPhase('reveal')).toBe('resolve');
     expect(nextPhase('resolve')).toBe('score');
     expect(nextPhase('score')).toBe('setup');
   });
 
   it('keeps a Turn inside the 15–22 second budget', () => {
-    const total = (['setup', 'draw', 'reveal', 'resolve', 'score'] as const)
+    const total = (['setup', 'draw', 'cast', 'reveal', 'resolve', 'score'] as const)
       .map(phaseDurationMs)
       .reduce((a, b) => a + b, 0);
     expect(total).toBeGreaterThanOrEqual(15_000);

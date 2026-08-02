@@ -142,10 +142,17 @@ describe('ink (PRD §7.2)', () => {
   });
 
   it('lets a full ink meter draw a stroke worth using', () => {
-    // If the budget were too tight the largest legal Bubble Ward would be
-    // unreachable, and the size mappings would have dead range at the top.
+    // If the budget were too tight the biggest useful shape would be
+    // unreachable and the size mappings would have dead range at the top.
+    //
+    // Measured against the *Draw* camera, not the full arena. Ink is charged
+    // per arena unit, and Session 12 zoomed the Draw framing in, so a shape
+    // that fills a given fraction of the screen now spans fewer arena units.
+    // Judging the budget against full-arena distances would silently make this
+    // test stricter every time the camera tightened.
     const budget = affordableLength(CONFIG.ink.total);
-    const largeRingPerimeter = 2 * Math.PI * 0.45;
+    const drawScale = CONFIG.camera.drawHalfWidth / CONFIG.camera.fullHalfWidth;
+    const largeRingPerimeter = 2 * Math.PI * 0.45 * drawScale;
     expect(budget).toBeGreaterThan(largeRingPerimeter);
   });
 

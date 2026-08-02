@@ -15,19 +15,23 @@ export { SPELLS } from './spells.js';
  * Time is milliseconds at the match-loop level, seconds inside the simulation.
  */
 export const CONFIG: GameConfig = Object.freeze({
-  // PRD §6 — 4 + 7 + 1 + 8 + 2 = 22s worst case, matching the stated 15–22s Turn.
+  // Conjure → Cast stays within the original 15–22s Turn budget.
   phases: Object.freeze({
-    setupMs: 4000,
-    drawMs: 7000,
+    setupMs: 3000,
+    drawMs: 6000,
+    castMs: 2000,
     revealMs: 1000,
-    resolveMaxMs: 8000,
+    resolveMaxMs: 7000,
     scoreMs: 2000,
   }),
 
   // PRD §7.2 — ink caps spell size. A-01 fixes the reset scope to per-Turn.
   ink: Object.freeze({
     total: 100,
-    costPerUnitLength: 26,
+    // 26 × (fullHalfWidth 1.45 / drawHalfWidth 0.85) = 44.4. The Draw camera is
+    // zoomed, so a given finger sweep now covers fewer arena units; without
+    // this rescale the same gesture would suddenly buy 1.7x more matter.
+    costPerUnitLength: 44.4,
     costToStart: 4,
     warnFraction: 0.25,
   }),
@@ -37,7 +41,15 @@ export const CONFIG: GameConfig = Object.freeze({
     resetScope: 'round' as const,
     initial: 0,
     max: 100,
-    gainPerImpulse: 13,
+    // 46, not 13. Impulse is now real momentum (order 0.1-1.0) instead of the
+    // energy-times-20 quantity the old code fed in, so the multiplier had to
+    // be rescaled with it. Measured: a solid connect is ~24 Wobble, a graze is
+    // ~7, a clean full-body strike is ~48.
+    gainPerImpulse: 46,
+    // Every impact also throws the wizard upward by this fraction of its
+    // magnitude. See applyImpact() in world.ts for why knockback has to launch
+    // rather than shove.
+    knockbackLift: 0.9,
     // At full Wobble a hit throws you 2.6x as far as it would at zero.
     knockbackMultiplierAtMax: 2.6,
     // Slow bleed gives the losing player a route back. PRD §5.3 comeback goal.
@@ -62,10 +74,160 @@ export const CONFIG: GameConfig = Object.freeze({
   // A-04 — the rune canvas is a 1:1 transparent overlay on the arena.
   aim: Object.freeze({
     frame: 'arena-overlay' as const,
-    // Roughly two-thirds of the island: far enough to be expressive, close
-    // enough that you cannot simply place a Vortex on top of your opponent
-    // from across the map without committing to the position.
     maxCastRadius: 1.3,
+    // ~83°. Widened from 70° because a steep lob is the *defensive* cast: it
+    // lands the rune in front of you as a screen instead of sending it across.
+    // At 70° the shortest legal shot still travelled too far to shield with.
+    maxAngleFromOpponent: 1.45,
+    spawnForward: 0.2,
+    /**
+     * Every cast is launched with the same energy, so `v = sqrt(2E/m)`.
+     *
+     * Worked example at the tuned constants (opponent sits 1.1 units away,
+     * particle gravity 1.088, flat-ground range = v²·sin(2θ)/g):
+     *
+     *   Ink  10 → mass 0.18 → v 1.73 → max reach 2.75 (fast dart)
+     *   Ink  20 → mass 0.22 → v 1.55 → max reach 2.20
+     *   Ink  40 → mass 0.44 → v 1.09 → max reach 1.10 (exactly the rival)
+     *   Ink  70 → mass 0.77 → v 0.83 → max reach 0.63 (a screen)
+     *   Ink 100 → mass 1.10 → v 0.69 → max reach 0.44 (a wall at your feet)
+     *
+     * The crossover sits at Ink 40. That single number is the offence/defence
+     * decision, and it is made by how much you draw — not by a role, a toggle,
+     * or a hidden Ward stat.
+     *
+     * Tuned down from 0.24: at that value the lightest rune reached 4x the
+     * arena gap, which left only a razor-flat shot or a lob that punched
+     * through the particle ceiling. Aiming needs a usable window in between.
+     */
+    launchEnergy: 0.263,
+    minLaunchSpeed: 0.5,
+    maxLaunchSpeed: 2.1,
+  }),
+
+  // Shared because Draw zoom feeds back into Ink cost (see ink.costPerUnitLength).
+  camera: Object.freeze({
+    drawHalfWidth: 0.85,
+    fullHalfWidth: 1.45,
+    drawCenterY: 0.34,
+    fullCenterY: 0.2,
+    // Pulls the Draw framing toward mid-arena so the rival stays partly in
+    // frame; a player who cannot see the rival cannot aim meaningfully.
+    drawCenterBias: 0.3,
+    easePerSecond: 6.5,
+  }),
+
+  // Selected deterministically per Round and shown before either player draws.
+  wind: Object.freeze({
+    accelerationLevels: Object.freeze([0, 0.16, 0.28, 0.42]),
+    verticalLiftFraction: 0.12,
+  }),
+
+  // Cave geometry is generated from this shared data once per Round. The
+  // server sends the resulting immutable triangles to both clients.
+  hazards: Object.freeze({
+    generation: Object.freeze({
+      minCount: 3,
+      maxCount: 4,
+      xRange: Object.freeze([-0.66, 0.66] as const),
+      slotJitterFraction: 0.18,
+      halfWidthRange: Object.freeze([0.1, 0.16] as const),
+      /**
+       * Ground crystals top out at 0.36 and floating ones hang no lower than
+       * 0.82, leaving a 0.46-unit firing corridor.
+       *
+       * The old bands (0.42 and 0.58) left a 0.16 gap. Measured on seed 8: a
+       * flat cast was hard-blocked for an entire Round, and because a Round
+       * only ends on a knock-out, the layout never regenerated — the match
+       * could not progress at all. A cave that can deadlock a match is not a
+       * hazard, it is a stall.
+       *
+       * Floating crystals also now hang from 1.3 rather than a 1.02 ceiling,
+       * which suits a sky arena better than a cave roof.
+       */
+      stalagmiteTipYRange: Object.freeze([0.2, 0.36] as const),
+      stalactiteTipYRange: Object.freeze([0.82, 1.02] as const),
+      ceilingY: 1.3,
+      spawnClearance: 0.3,
+    }),
+    collisionSkin: 0.001,
+    spellRestitution: 0.58,
+    spellEnergyLossFraction: 0.16,
+    playerRestitution: 0.32,
+    playerImpact: 0.55,
+  }),
+
+  // Meta knobs for rune construction, breakage, and fragments.
+  runeBody: Object.freeze({
+    minParticles: 6,
+    maxParticles: 28,
+    particleRadius: 0.035,
+    spawnHeight: 0.1125,
+    minExtent: 0.18,
+    maxExtent: 0.62,
+    massPerInk: 0.011,
+    /**
+     * Absolute floor on total body mass — see `totalMass` in runeBody.ts for
+     * why it is not per-particle any more.
+     *
+     * This number sets the *top* of the reach curve, because reach scales with
+     * `1/m`. At 0.27 the lightest possible rune reaches about 1.6x the gap
+     * between wizards, which leaves a usable aim window on both the flat and
+     * the lofted solution. Lower values (a 4x-gap dart) technically fly
+     * further but make every shot a near-miss, which is the "physics feels
+     * random" risk PRD §20 lists first.
+     */
+    minimumMass: 0.27,
+    energyPerInk: 0.052,
+    baseParticleIntegrity: 0.16,
+    integrityPerInk: 0.008,
+    bondStiffness: 24,
+    bondDamping: 1.7,
+    bondBaseStrength: 0.52,
+    bondCollisionRadius: 0.018,
+    bondEndCapFraction: 0.12,
+    intersectionDistance: 0.075,
+    intersectionStrengthBonus: 0.65,
+    maxCrossBonds: 8,
+    breakStrain: 0.72,
+    // Runes bounce off each other rather than sticking, so a shield deflects
+    // as well as absorbs. "Pantulan" is this number plus mass, not bookkeeping.
+    particleRestitution: 0.52,
+    collisionEnergyScale: 0.48,
+    mutualDamageScale: 1.4,
+    integrityDamageScale: 0.24,
+    /**
+     * Replaces `playerImpactScale: 20`, which multiplied an *energy* value and
+     * produced knockback an order of magnitude larger than the momentum that
+     * physically caused it.
+     *
+     * Above 1.0 because a spell is allowed to impart more than its raw kinetic
+     * momentum — that is the magic. Calibrated against a measured Resolve: a
+     * mid-Ink rune (30 Ink, 13 nodes, total momentum 0.40) landing about half
+     * its nodes gives roughly Δv 0.5 and +24 Wobble, so a clean full-body hit
+     * is decisive and a graze is not. Knock-outs land in the 2-4 Turn range
+     * the 3-5 minute match length in PRD §4.4 needs.
+     */
+    impactTransfer: 2.6,
+    // 0.05, not 0.12. A node of a light rune only carries ~0.065 charge, so a
+    // 0.12 threshold halved every light hit — penalising small runes twice,
+    // once through mass and again through charge. This gate exists to fade out
+    // *spent* matter, not to tax fresh matter for being light.
+    energyForFullImpact: 0.05,
+    energyCostPerImpulse: 0.22,
+    groundRestitution: 0.24,
+    groundFriction: 2.6,
+    groundEnergyLossFraction: 0.06,
+    // Comfortably above the per-step velocity gravity adds (1.088 × 1/60 ≈
+    // 0.018), so a settled particle is never mistaken for a landing one.
+    groundRestingSpeed: 0.09,
+    airDrag: 0.16,
+    gravityScale: 0.34,
+    hazardIntegrityDamage: 0.09,
+    powerlessEnergyThreshold: 0.0001,
+    particleKillWallMultiplier: 1.25,
+    particleCeilingY: 1.35,
+    lifetimeMs: 5200,
   }),
 
   // A-06 — reconnect promoted into MVP scope.
@@ -98,6 +260,34 @@ export const CONFIG: GameConfig = Object.freeze({
     killWallX: 2.2,
     gravity: -3.2,
     lowGravityMultiplier: 0.55,
+  }),
+
+  // The wizard bodies. Spawns sit inside the island half-width (1.0) so there
+  // is room to be pushed toward either edge before a knock-out.
+  player: Object.freeze({
+    radius: 0.09,
+    mass: 1.0,
+    spawnX: 0.55,
+    groundRestitution: 0.15,
+    // 1.4, not 3.2. At 3.2 a grounded wizard shed knockback in under 0.2s and
+    // travelled ~0.03 units per hit, which made positional knock-out — the
+    // only lose condition in the game — practically unreachable.
+    groundFriction: 1.4,
+    airDrag: 0.4,
+  }),
+
+  // Combat tuning. Provisional — these are the numbers a Physics Toy exists to
+  // tune (PRD §18 Stage 1), chosen here so the online slice is playable now.
+  combat: Object.freeze({
+    projectileSpeedScale: 1.1,
+    projectileMinSpeed: 0.9,
+    impulseScale: 0.9,
+    loopPush: 2.4,
+    vortexPull: 2.2,
+    vortexRelease: 2.0,
+    vortexPullFraction: 0.7,
+    maxHits: 2,
+    unstableJitter: 0.5,
   }),
 
   // PRD §20 — fixed timestep is the anti-desync measure.
