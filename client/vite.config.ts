@@ -10,6 +10,7 @@ export default defineConfig({
       '@cozy/shared': fileURLToPath(new URL('../shared/src/index.ts', import.meta.url)),
     },
   },
-  server: { port: 5173, open: true },
+  // Listen on the LAN so a phone can join a desktop-hosted room during MVP tests.
+  server: { host: true, port: 5173, open: false },
   build: { target: 'es2022', outDir: 'dist' },
 });

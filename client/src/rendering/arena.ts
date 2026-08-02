@@ -38,13 +38,13 @@ export function drawScene(
 
 function drawSky(ctx: CanvasRenderingContext2D, viewport: Viewport): void {
   const gradient = ctx.createLinearGradient(0, 0, 0, viewport.height);
-  gradient.addColorStop(0, PALETTE.skyTop);
-  gradient.addColorStop(1, PALETTE.skyBottom);
+  gradient.addColorStop(0, PALETTE.skyZenith);
+  gradient.addColorStop(1, PALETTE.skyHorizon);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, viewport.width, viewport.height);
 
   // Parallax cloud bands. PRD §12 asks for layered depth behind the island.
-  ctx.fillStyle = PALETTE.cloud;
+  ctx.fillStyle = PALETTE.cloudLight;
   for (let i = 0; i < 4; i++) {
     const y = viewport.height * (0.12 + i * 0.11);
     const w = viewport.width * (0.32 + i * 0.13);
@@ -63,7 +63,7 @@ function drawIsland(ctx: CanvasRenderingContext2D, viewport: Viewport): void {
   const tip = toScreen(viewport, { x: 0, y: -0.62 });
   const surfaceHeight = toPixels(viewport, 0.055);
 
-  ctx.fillStyle = PALETTE.islandRock;
+  ctx.fillStyle = PALETTE.rockMid;
   ctx.beginPath();
   ctx.moveTo(left.x, left.y);
   ctx.lineTo(right.x, right.y);
@@ -72,7 +72,7 @@ function drawIsland(ctx: CanvasRenderingContext2D, viewport: Viewport): void {
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = PALETTE.islandGrass;
+  ctx.fillStyle = PALETTE.grassMid;
   ctx.beginPath();
   ctx.ellipse(
     (left.x + right.x) / 2,
@@ -105,7 +105,7 @@ function drawWizard(ctx: CanvasRenderingContext2D, viewport: Viewport, position:
   const base = toScreen(viewport, position);
   const unit = toPixels(viewport, 0.075);
 
-  ctx.fillStyle = PALETTE.islandShadow;
+  ctx.fillStyle = PALETTE.rockDeep;
   ctx.beginPath();
   ctx.ellipse(base.x, base.y + unit * 0.15, unit * 0.85, unit * 0.25, 0, 0, TAU);
   ctx.fill();
@@ -135,7 +135,7 @@ function drawWizard(ctx: CanvasRenderingContext2D, viewport: Viewport, position:
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = PALETTE.islandShadow;
+  ctx.fillStyle = PALETTE.rockDeep;
   ctx.beginPath();
   ctx.arc(base.x - unit * 0.17, base.y - unit * 1.42, unit * 0.07, 0, TAU);
   ctx.arc(base.x + unit * 0.17, base.y - unit * 1.42, unit * 0.07, 0, TAU);

@@ -2,64 +2,102 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>Spell Lab — Draw Magic. Expect Chaos.</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#171424" />
+    <title>Cozy Chaos - Draw Magic. Expect Chaos.</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <main class="lab">
-      <header class="lab__header">
-        <div>
-          <h1>Spell Lab</h1>
-          <p class="lab__tagline">Draw magic. Expect chaos.</p>
+    <main class="game-shell">
+      <section class="lobby" id="lobby">
+        <div class="lobby__brand">
+          <span class="eyebrow">A two-wizard physics duel</span>
+          <h1>Cozy Chaos</h1>
+          <p>Draw magic. Expect chaos.</p>
         </div>
-        <label class="assist">
-          <span>Draw assist</span>
-          <select id="assist">
-            <option value="standard">Standard</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-      </header>
 
-      <section class="stage">
-        <canvas id="arena" aria-label="Drawing area"></canvas>
-        <p class="stage__hint" id="hint">Draw anywhere on the island.</p>
-        <div class="ink" aria-label="Ink meter">
-          <div class="ink__bar"><span id="ink-fill"></span></div>
-          <span class="ink__label" id="ink-label">Reserve 100%</span>
+        <div class="lobby__card">
+          <div class="connection" id="connection-status">Connecting to server...</div>
+          <label class="field">
+            <span>Your wizard name</span>
+            <input id="player-name" maxlength="24" autocomplete="nickname" placeholder="Wizard" />
+          </label>
+          <button class="button button--primary" id="create-room" type="button" disabled>Create a room</button>
+          <div class="divider"><span>or join a friend</span></div>
+          <div class="join-row">
+            <label class="field field--code">
+              <span>Room code</span>
+              <input id="room-input" maxlength="4" inputmode="text" autocomplete="off" autocapitalize="characters" placeholder="ABCD" />
+            </label>
+            <button class="button" id="join-room" type="button" disabled>Join</button>
+          </div>
+          <p class="lobby__feedback" id="lobby-feedback" aria-live="polite">Create a room, then share its four-character code.</p>
         </div>
       </section>
 
-      <aside class="readout">
-        <div class="verdict">
-          <span class="verdict__family" id="summary-title">Draw freely</span>
-          <span class="verdict__blurb" id="summary-blurb">
-            Your geometry becomes force. What you do not spend stays in reserve.
-          </span>
-          <div class="summary-stats">
-            <span>Direction <strong id="summary-heading">—</strong></span>
-            <span>Force <strong id="summary-force">—</strong></span>
+      <section class="match" id="match" hidden>
+        <header class="match__topbar">
+          <div class="room-badge">
+            <span>Room</span>
+            <strong id="room-code">----</strong>
+            <button id="copy-code" type="button">Copy</button>
           </div>
-          <div class="motif-sequence" id="motif-sequence" aria-label="Shape sequence"></div>
+          <div class="phase-card">
+            <strong id="phase-label">Waiting for rival</strong>
+            <span id="phase-timer">--</span>
+          </div>
+          <button class="leave-button" id="leave-room" type="button">Leave</button>
+        </header>
+
+        <div class="scoreline">
+          <article class="player-chip player-chip--zero">
+            <strong id="player-0-name">Wizard 1</strong>
+            <span class="player-chip__stars" id="player-0-stars">☆☆☆</span>
+            <span class="player-chip__state" id="player-0-state">You</span>
+          </article>
+
+          <div class="turn-flow" aria-label="Turn flow">
+            <span class="turn-flow__meta" id="turn-label">R1 · T1</span>
+            <ol>
+              <li class="turn-flow__step turn-flow__step--draw"><b>1</b><i>Draw</i></li>
+              <li class="turn-flow__step turn-flow__step--cast"><b>2</b><i>Aim</i></li>
+              <li class="turn-flow__step turn-flow__step--resolve"><b>3</b><i>Clash</i></li>
+            </ol>
+          </div>
+
+          <article class="player-chip player-chip--one">
+            <strong id="player-1-name">Waiting...</strong>
+            <span class="player-chip__stars" id="player-1-stars">☆☆☆</span>
+            <span class="player-chip__state" id="player-1-state">Offline</span>
+          </article>
         </div>
 
-        <h2>Ink commitment</h2>
-        <div class="ink-split" aria-label="Committed and reserved ink">
-          <div class="ink-split__row">
-            <span id="committed-label">0 committed</span>
-            <div class="ink-split__track"><span class="is-committed" id="committed-fill"></span></div>
-          </div>
-          <div class="ink-split__row">
-            <span id="reserved-label">100 reserved</span>
-            <div class="ink-split__track"><span class="is-reserved" id="reserved-fill"></span></div>
-          </div>
-        </div>
+        <section class="arena-wrap">
+          <canvas id="arena" aria-label="Multiplayer spell arena"></canvas>
 
-        <h2>Session strokes <span id="record-count">0</span></h2>
-        <button class="export-button" id="export-data" type="button" disabled>Export playtest JSON</button>
-        <p class="telemetry-note">Stored locally. Export includes the original stroke for replay and tuning.</p>
-      </aside>
+          <div class="arena__top">
+            <div class="wind" id="wind-status">Wind calm · 3 crystals</div>
+            <div class="ink" aria-label="Ink spent">
+              <div class="ink__bar"><span id="ink-fill"></span></div>
+              <span class="ink__label" id="ink-label">0 / 100 Ink spent</span>
+            </div>
+          </div>
+
+          <p class="match__hint" id="match-hint">Share the room code. The duel starts when your rival joins.</p>
+
+          <div class="spell-readout">
+            <strong id="spell-preview">Draw anything. Small and quick, or big and heavy.</strong>
+            <span class="spell-readout__role" id="spell-role"></span>
+            <p id="reveal-summary" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="winner" id="winner-panel" hidden>
+          <span>Match complete</span>
+          <h2 id="winner-text">You won the duel!</h2>
+          <button class="button button--primary" id="rematch" type="button">Rematch</button>
+        </section>
+      </section>
     </main>
     <script type="module" src="./src/main.ts"></script>
   </body>
