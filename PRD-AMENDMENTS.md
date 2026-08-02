@@ -208,6 +208,47 @@ persistensi setelah server restart.
 
 ---
 
+## A-07 — Renderer MVP tidak lagi dikunci ke Three.js
+
+**Severity:** Serius — constraint arsitektur lama bertentangan dengan renderer
+yang sudah berjalan dan dengan keterbacaan core loop.
+
+### Masalah
+
+PRD §15 menetapkan `Client: Vite + TypeScript + Three.js`, sementara runtime
+sejak Stage 0 memakai Canvas 2D berlapis. Membiarkan nama library itu sebagai
+requirement memberi sinyal keliru bahwa renderer harus dipindah ke 3D, padahal
+gameplay, kamera, input, dan collision contract saat ini berada pada satu bidang
+side-view.
+
+Ini bukan larangan universal terhadap game isometric. Untuk kontrak produk dan
+MVP ini, perpindahan tersebut mengubah dua sifat inti:
+
+1. **Literalitas coretan.** PRD §1 menjanjikan setiap coretan menjadi sihir.
+   Stroke pemain adalah kurva 2D di layar. Runtime isometric harus memilih
+   bidang kedalaman untuk kurva itu; pilihan tersebut menambahkan interpretasi
+   yang tidak ada pada input literal pemain.
+2. **Keterbacaan balistik.** Arc, wind, pantulan crystal, dan jarak serang
+   Gunbound-like saat ini dibaca pada satu bidang. Kedalaman tersembunyi dapat
+   membuat hasil meleset terasa tidak adil, bertentangan dengan cozy chaos pada
+   §4.2.
+
+### Resolusi
+
+Baris PRD §15 dibaca sebagai:
+
+> Client: Vite + TypeScript + **renderer Canvas 2D berlapis**.
+
+- Runtime 3D/isometric berada di luar scope MVP.
+- 3D tetap sah sebagai **pipeline aset**: karakter atau environment dapat
+  dibuat dari sumber 3D lalu dirender menjadi sprite 2D.
+- Hanya hasil 2D yang masuk runtime; authoritative physics dan input mapping
+  tetap berada pada bidang side-view.
+- Keputusan ini dapat ditinjau kembali setelah combat lulus playtest manusia,
+  tetapi perubahan itu adalah pivot produk, bukan penggantian skin.
+
+---
+
 ## Ringkasan konstanta yang dikunci amandemen ini
 
 Nilai-nilai ini hidup di `shared/config` sebagai data, bukan magic number.

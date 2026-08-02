@@ -6,6 +6,614 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-02 — Sesi 15: Pulihkan repo dan sinkronkan kontrak produk
+
+**Pelaksana:** Codex. Stage 1 T1–T5 dari `HANDOVER-CODEX.md` dieksekusi.
+Tidak ada logic gameplay baru dalam sesi ini; perubahan dokumen mengoreksi peta
+terhadap kode yang sudah dibangun pada Sesi 8–13, lalu seluruh pekerjaan yang
+masih menggantung dipreservasi dalam commit terpisah.
+
+### Perubahan
+
+- `roadmap.md` ditulis ulang dari kontrak aktif: tidak ada role; Ink membeli
+  massa; fixed launch energy mengubah massa menjadi speed dan reach; tabrakan
+  rune simetris serta dibobot massa; arena aktif adalah floating dream island.
+- `README.md` tidak lagi menjanjikan Attack/Counter, Ward dari sisa Ink, arena
+  gua, atau jumlah test lama. Instruksi menjalankan dua client + authoritative
+  server dipertahankan.
+- Arena dan reflector ImageGen lama ditandai `obsolete-theme` di
+  `ASSET-PROVENANCE.md` dan manifest. Dua wizard tetap `candidate`; tidak ada
+  aset yang di-wire ke renderer. Empat PNG dipertahankan di git sebagai
+  provenance atas keputusan eksplisit BK.
+- Amandemen A-07 mengganti kunci Three.js pada PRD §15 menjadi renderer Canvas
+  2D berlapis untuk MVP. 3D tetap diperbolehkan sebagai pipeline aset → sprite
+  2D, bukan runtime physics.
+- Pekerjaan Sesi 8–13 dipisahkan ke lima kelompok riwayat: shared
+  sim/protocol, authoritative server, multiplayer client, art/provenance, dan
+  dokumentasi. Tujuannya agar rollback/review tidak membutuhkan satu commit
+  raksasa.
+
+### Mengapa
+
+`roadmap.md` dan `README.md` dibangun dari state paralel yang sudah usang:
+keduanya mendeskripsikan mekanik yang dihapus pada Sesi 12. Pada saat yang sama,
+server, simulation, protocol, client multiplayer, dan aset belum pernah masuk
+commit sejak Sesi 7. Risiko utamanya bukan bug baru, melainkan kehilangan tujuh
+sesi kerja dan Claude mengambil keputusan berikutnya dari peta yang salah.
+
+### PixelLab dan keamanan token
+
+PixelLab tidak dipanggil dan tidak ada credit yang dipakai. Token yang ditempel
+di chat tidak disalin ke file, environment, git, atau output. Karena sudah
+terekspos di percakapan, token itu harus dirotasi sebelum Stage 3. Art generation
+tetap diblokir sampai playtest Stage 2 lulus.
+
+### Verifikasi pre-commit
+
+| Cek | Hasil |
+|---|---|
+| `npm test` | **189 passed** (13 file) |
+| `npm run typecheck` | bersih |
+| `npm run build` | shared + client + server berhasil |
+| `npm audit` | **0 vulnerabilities** |
+| grep roadmap untuk mekanik stale | hanya dua nama file aset obsolete yang memuat kata tema lama |
+
+### Berikutnya
+
+Stage 2 T6–T7: export telemetri authoritative per Turn dan protokol playtest
+untuk 10+ manusia. Keputusan 3D→2D versus PixelLab versus painterly fallback
+baru dibuka setelah combat manusia memvalidasi trade-off Ink.
+
+## 2026-08-02 — Sesi 14: Audit drift dokumen, arah kamera dikunci 2D, handover Codex
+
+**Pelaksana:** Claude (orchestrator). **Tidak ada perubahan kode.** Yang berubah
+hanya dokumen; `npm test` dijalankan sebagai pengukuran, bukan sebagai
+perbaikan.
+
+Sesi ini menjawab pertanyaan BK: 3D isometric atau tetap 2D, dan apakah ada
+generator sprite 2D. Menjawabnya butuh membaca `roadmap.md` — dan di situ
+masalah sebenarnya muncul.
+
+### Keputusan: tetap 2D side-view. Isometric/3D runtime ditolak.
+
+Sepakat dengan kesimpulan `roadmap.md` §2, tapi **tidak dengan alasannya.**
+Codex beralasan biaya implementasi (proyeksi kamera, depth sorting, mesh
+collision). Itu alasan paling lemah yang tersedia — biaya bisa dibayar. Dua
+alasan yang benar-benar mengikat ada di PRD:
+
+1. **Isometric membatalkan janji inti.** PRD §1: "Setiap coretan menjadi
+   sihir." Stroke adalah kurva 2D di layar. Di dunia isometric, engine harus
+   memutuskan stroke itu hidup di bidang mana — apa pun pilihannya, itu
+   interpretasi, bukan literal. Materi sihir berhenti jadi persis apa yang
+   digambar pemain.
+2. **Isometric merusak keterbacaan balistik.** PRD §3 menargetkan pemain
+   Gunbound. Arc + wind + pantulan crystal hanya adil kalau jarak dibaca di
+   satu bidang. Kedalaman tersembunyi membuat meleset terasa curang, bukan
+   lucu — melanggar pilar §4.2.
+
+3D tetap sah sebagai **pipeline aset** (render sprite 2D dari sumber 3D), bukan
+sebagai renderer runtime.
+
+### Temuan: dokumen handoff mendeskripsikan mekanik yang sudah dihapus
+
+Ini temuan utama sesi ini, dan lebih penting dari pertanyaan art-nya.
+
+`roadmap.md` ditulis Codex di Sesi 13 sebagai "shared handoff untuk user,
+Claude, dan Codex". Isinya mendeskripsikan sistem yang dihapus di Sesi 12:
+
+| Klaim | Bukti bahwa itu salah |
+|---|---|
+| "server assigns alternating roles: one ATTACK, one COUNTER" | `grep -rn "ATTACK\|COUNTER"` ke `shared/ server/ client/` non-test → nol hasil. `shared/src/match/roles.ts` tinggal tombstone `export {}`. |
+| "Ward from reserved Ink" | Ward dihapus total. Sisa kata "Ward" hanya nama spell family `Bubble Ward` — hal berbeda. |
+| "cozy cave arena", "stalactite reflectors" | Arena sudah floating dream island + dream sky sejak Sesi 12. Lihat `matchScene.ts#drawSky`/`drawCrystals`. |
+| "176 tests green" | 189 hijau, diukur ulang sesi ini. |
+
+Efek berantainya: seluruh art kit ImageGen dari Sesi 12 (`cozy-cave-arena.png`,
+`cave-reflectors-sheet.png`) bertema arena yang sudah mati, dan
+`manifest.json` masih menulis `"style": "cozy-hand-painted-cave"`. `README.md`
+juga masih menjanjikan "alternate Attack/Counter roles" dan "unused Ink becomes
+partial Ward" ke pembaca baru.
+
+**Penyebabnya bukan kecerobohan Codex.** Sesi 12 berjalan dua kali secara
+paralel — Codex menghasilkan art kit sementara Claude membongkar role dan
+arena. Codex menulis roadmap dari state yang dibacanya, dan state itu sudah
+usang saat tintanya kering. Yang hilang adalah langkah verifikasi dokumen
+terhadap kode sebelum handoff. Itu sekarang jadi aturan tetap di
+`HANDOVER-CODEX.md`.
+
+**Yang justru dikerjakan dengan benar:** `DESIGN-RUNE-BODY-COMBAT.md` menandai
+dirinya sendiri sebagai pengganti versi role, dan `roles.ts` disimpan sebagai
+tombstone dengan alasan tertulis. Dua hal itu yang membuat drift ini bisa
+dideteksi sama sekali.
+
+### Temuan kedua: tujuh sesi belum di-commit
+
+Commit terakhir `aea444a` = Sesi 7. Sesi 8–13 seluruhnya menggantung sebagai
+modified/untracked: `server/`, `shared/src/sim/`, `shared/src/protocol/`,
+`client/src/net/`, `matchScene.ts`, `matchGame.ts`, `runeBody.ts`, art kit.
+Risiko terbesar di repo saat ini, dan tidak berhubungan dengan game design sama
+sekali.
+
+### Temuan ketiga: PRD §15 masih mengunci Three.js
+
+Implementasi jalan di Canvas 2D sejak Sesi 0 dengan alasan yang benar dan
+tercatat, dan sekarang membawa 189 test. Constraint yang tidak ditegakkan itu
+jebakan — cepat atau lambat ada yang membacanya sebagai izin masuk 3D lalu
+membuang renderer yang sudah teruji. Amandemen dijadwalkan sebagai T4.
+
+### Survei generator sprite 2D (belum dievaluasi, bukan rekomendasi)
+
+PixelLab (pixel-art spesialis, skeleton animation, cap 512×512), Ludo (30+ gaya
+termasuk hand-painted, ekspor atlas), AutoSprite (animation-first via video
+pipeline), Sprite-AI (16–128 px + atlas JSON). Catatan skeptis: kit yang ada
+sekarang painterly, bukan pixel art. Generator pixel-art bukan upgrade dari kit
+itu — itu pivot gaya, dan `roadmap.md` §2 benar melarang mencampur keduanya.
+
+### Deliverable
+
+`HANDOVER-CODEX.md` — dokumen eksekusi berurutan untuk Codex. Stage 1 (perbaiki
+peta: T1–T5) memblokir Stage 2 (playtest: T6–T7), yang memblokir Stage 3 (art).
+Tiap task menyebut file yang boleh disentuh, langkah konkret, dan acceptance
+criteria. Menggantikan `roadmap.md` §8.
+
+### Verifikasi
+
+| Cek | Hasil |
+|---|---|
+| `npm test` | **189 passed** (13 file) |
+| `grep` role/Ward ke kode non-test | nol hasil — mengonfirmasi roadmap stale |
+| `git log` vs `git status` | commit terakhir Sesi 7; 21 modified, 12 untracked |
+
+**Belum diverifikasi:** typecheck, build, dan audit tidak dijalankan sesi ini —
+sengaja, karena tidak ada kode yang berubah. Codex wajib menjalankan keempatnya
+di T5 sebelum commit.
+
+### Catatan proses
+
+Entri Sesi 14 versi awal sempat ditulis di **akhir** file. Changelog ini
+reverse-chronological; entri sudah dipindahkan ke atas. Nomor sesi 12 terpakai
+dua kali (Codex dan Claude) — dibiarkan apa adanya karena riwayat, tapi sesi
+berikutnya adalah 15.
+
+## 2026-08-02 — Sesi 13: PixelLab pilot plan dan consolidated roadmap
+
+**Pelaksana:** Codex.
+
+- PixelLab dicari di tool sesi dan belum terpasang; token juga belum tersedia
+  di environment. Tidak ada credit PixelLab yang dipakai atau hasil palsu yang
+  diklaim.
+- `roadmap.md` dibuat sebagai handoff tunggal untuk user/Claude/Codex. Dokumen
+  merangkum product intent, keputusan 2D physics + 2.5D art, implementasi saat
+  ini, seluruh ImageGen output, status integrasi, dan risiko.
+- Pilot PixelLab dibatasi ke satu cyan wizard dengan idle + cast sebelum
+  membuat semua state/team. Acceptance criteria mengunci pivot, silhouette,
+  palette, loop, transparency, dan readability pada 48/80 px.
+- Jalur MCP resmi, aturan token, prompt animation, staging integrasi, serta
+  ownership boundary dicatat agar Claude dapat menentukan pelaksana berikutnya.
+
+## 2026-08-02 — Sesi 12: Representative multiplayer art kit
+
+**Pelaksana:** Codex dengan built-in OpenAI ImageGen.
+
+- Menghasilkan background cave arena 1672×941 tanpa karakter/obstacle agar
+  random layout tetap dimiliki server.
+- Menghasilkan dua character cutout 1254×1254: wizard cyan menghadap kanan dan
+  wizard pink menghadap kiri.
+- Menghasilkan reflector sheet 1672×941 berisi enam stalaktit/stalagmit dalam
+  tiga proporsi visual. Ini hanya skin; triangle config tetap collider resmi.
+- Tiga asset cutout diproses dari chroma-key menjadi PNG ARGB menggunakan soft
+  matte + despill, lalu diperiksa secara visual tanpa fringe hijau.
+- Semua output disimpan di `client/public/assets/generated`, dilengkapi
+  `manifest.json`. Prompt, provenance, dan guardrail integrasi dicatat di
+  `ASSET-PROVENANCE.md`.
+- Aset belum dipasang ke renderer pada sesi ini; canvas renderer lama sengaja
+  dipertahankan sampai readability mobile dan mapping triangle diuji.
+
+## 2026-08-02 — Sesi 12: Role dihapus, Ink jadi dial serang/tahan, arena dream sky
+
+**Pelaksana:** Claude (orchestrator), atas keputusan produk BK.
+
+Sesi ini menjawab tujuh poin feedback BK. Yang terbesar: **attack dan counter
+dihapus seluruhnya.** Keluhan "sihir menyerang dan bertahan tidak ada bedanya"
+bukan bug tuning — dua role memang dibangun oleh fungsi yang sama, dibidik oleh
+clamp yang sama, dan hanya berbeda dua angka.
+
+### Temuan sebelum menulis kode
+
+Dibaca dulu sesuai instruksi proyek nomor 3. Lima temuan, tiga di antaranya
+belum pernah tercatat di sesi mana pun:
+
+1. **Role tidak pernah terasa.** `buildRuneBody()` satu fungsi untuk dua role.
+   Role hanya mengubah `attackLaunchSpeed 1.35` vs `counterLaunchSpeed 0.82`
+   dan spawn offset. Lebih parah, `clampAimToOpponent()` dipanggil untuk kedua
+   role — pemain bertahan **dipaksa** membidik ke lawan. Itu jawaban untuk
+   poin 7: arah defense-nya memang salah secara logika.
+2. **"Pantulan" tidak ada di fisika, hanya pembukuan.** Di
+   `exchangeSpellEnergy()`, `attackLoss = min(attack.energy, collisionEnergy)`
+   — sekali kena counter, partikel serangan kehilangan seluruh energinya lalu
+   mati karena `powerless`. Tabrakan **menghapus** serangan, bukan
+   memantulkannya. Energinya muncul sebagai `counterCharge`, angka abstrak
+   tanpa arah.
+3. **Bug dimensi di damage.** `impact = min(available, max(0.08, speed*mass)) *
+   20`. `available` adalah energi, `speed*mass` adalah momentum — dua satuan
+   berbeda di-`min` bersama, lalu dikali 20. Akibatnya `spent` selalu ≈ 10×
+   energi partikel, jadi `playerHitEnergyCost` tidak pernah berfungsi, dan
+   `minimumPlayerImpactEnergy: 0.08` membuat partikel nyaris diam tetap memberi
+   Wobble +20.8 (20% dari bar). Ini sumber rasa "acak".
+4. **Ward dekoratif.** Ward maksimum 1.8, tapi `ward -= rawImpact*0.36` dengan
+   rawImpact skala-20 menghabiskannya dalam satu hit.
+5. **Arena menyimpang dari PRD.** PRD §1 menulis "pulau mimpi terapung", pilar
+   §4.2 "Cozy chaos". Yang dibangun: gua abu-abu dengan segitiga `#555978`.
+   Duri itu jelek bukan karena kurang detail — temanya sendiri sudah drift.
+
+### Keputusan BK
+
+- Role dihapus, semua menyerang; sihir saling menghancurkan saat bertabrakan.
+- Serang-vs-tahan ditentukan **Ink → massa → kecepatan → jangkauan**.
+- Ward dihapus total.
+- Arena kembali ke cozy dream sky.
+- Kamera zoom saat Draw/Cast, pull-back saat Resolve.
+
+### Mekanik baru
+
+Kontrak lengkap ditulis ulang di `DESIGN-RUNE-BODY-COMBAT.md`. Inti:
+
+`v = sqrt(2 × launchEnergy / mass)` dengan launchEnergy konstan, sehingga
+`jangkauan ∝ 1/massa`. Crossover ada di Ink 40 (jarak antar penyihir 1.1):
+
+| Ink | massa | v | jangkauan | jadi |
+|---|---|---|---|---|
+| ≤25 | 0.27 | 1.40 | 1.79 | peluru |
+| 40 | 0.44 | 1.09 | 1.10 | tepat sampai |
+| 70 | 0.77 | 0.83 | 0.63 | layar |
+| 100 | 1.10 | 0.69 | 0.44 | tembok di kaki sendiri |
+
+Tabrakan simetris, dibobot **massa lawan**: dart 0.27 melawan tembok 1.10
+menyerap 80% kerusakan, tembok menyerap 20%. Itu satu baris yang membuat rune
+berat berfungsi sebagai perisai tanpa mekanik perisai apa pun.
+
+Materi yang sudah memantul (`deflected`) boleh mengenai pemiliknya sendiri.
+Materi segar tidak pernah bisa. Jadi "pantulan" sekarang benar-benar terjadi,
+terlihat (rim oranye di renderer), dan menguntungkan.
+
+### Temuan saat implementasi — yang membuat sesi ini panjang
+
+Empat masalah baru muncul hanya karena diukur, bukan diasumsikan:
+
+1. **Materi rune tidak punya collision dengan tanah.** Tembok berat jatuh
+   menembus pulau lalu mati di bawah kill floor. Perisai yang tenggelam tidak
+   memblokir apa pun — jadi separuh desain sebenarnya tidak ada. Ditambah
+   `collideParticlesWithGround()`.
+2. **Partikel yang diam kehilangan energi tiap frame.** Gravity memberi `vy`
+   negatif kecil setiap step, jadi setiap step dihitung sebagai benturan dan
+   memotong 6% energi. Tembok kehilangan 99% muatannya dalam dua detik hanya
+   dengan berdiam. Ditambah `groundRestingSpeed`.
+3. **Floor massa per-partikel justru meratakan kurva.** `minimumMass × count`
+   dengan `count` yang ikut naik seiring Ink adalah suku linear-terhadap-Ink
+   kedua. Diubah jadi floor absolut. Nilainya disapu: 0.012 memberi rentang 10x
+   tapi rune teringan terbang 4x lebar arena sehingga tidak ada window bidik
+   yang masuk akal; 0.27 memberi ~1.6x jarak lawan dan window yang bisa
+   dimainkan.
+4. **Koridor gua bisa mengunci match.** Band lama (stalagmit ≤0.42, stalaktit
+   ≥0.58) menyisakan celah 0.16. Diukur pada seed 8: tembakan datar terblokir
+   total sepanjang satu Round — dan karena Round hanya berakhir oleh KO, layout
+   tidak pernah di-regenerate. Match tidak bisa maju sama sekali. Band diubah
+   ke 0.36 / 0.82, ceiling 1.02 → 1.3 (juga lebih cocok untuk arena langit).
+
+Dan yang paling penting untuk feel:
+
+5. **Knockback harus melempar, bukan mendorong.** Setelah `playerImpactScale:
+   20` dihapus, impuls jadi momentum nyata — tapi `groundFriction: 3.2/s`
+   menghabiskannya dalam 0.2 detik. Diukur: satu hit solid menggeser penyihir
+   **0.03 unit** dan satu KO butuh **20 Turn** — empat kali panjang match yang
+   diminta PRD §4.4. Ditambah `knockbackLift: 0.9` (setiap benturan juga
+   melempar ke atas, di mana drag 0.4/s bukan 1.4/s) dan friction diturunkan ke
+   1.4. Sekarang KO terjadi dalam ~8 Turn dengan skrip naif; pemain yang
+   menyesuaikan Ink dan sudut akan lebih cepat.
+
+### Angka yang diganti
+
+| Lama | Baru | Alasan |
+|---|---|---|
+| `attackLaunchSpeed/counterLaunchSpeed` | `aim.launchEnergy 0.263` | kecepatan dari massa |
+| `minimumMass 0.035` (per partikel) | `0.27` (absolut) | floor per-partikel meratakan kurva |
+| `maxAngleFromOpponent 1.22` (70°) | `1.45` (83°) | lob curam = cast bertahan |
+| `playerImpactScale 20` | `impactTransfer 2.6` | energi vs momentum |
+| `minimumPlayerImpactEnergy 0.08` | dihapus | serempetan tidak lagi 20% Wobble |
+| `wobble.gainPerImpulse 13` | `46` | impuls sekarang momentum nyata |
+| `player.groundFriction 3.2` | `1.4` + `knockbackLift 0.9` | KO tidak terjangkau |
+| `ink.costPerUnitLength 26` | `44.4` | dikalibrasi ke zoom Draw |
+| `particleRestitution 0.36` | `0.52` | pantulan harus terasa |
+| ward, counterCharge, CastRole | dihapus | |
+
+### UI, aset, kamera
+
+- `matchScene.ts` ditulis ulang penuh: langit senja bergradien yang **terikat
+  ke koordinat arena** (jadi tidak menggeser saat kamera zoom), pita aurora,
+  bintang berkedip, pulau-pulau jauh berparalaks, awan yang hanyut mengikuti
+  angin, pulau dengan strata batu, rumput bergoyang, bunga, dan sulur
+  menggantung. Duri abu-abu jadi kristal berfaset dengan glow. Semua prosedural
+  dan deterministik — tidak ada file aset, tidak ada `Math.random`; sebaran
+  dekorasi memakai hash dari index, jadi kedua client melihat hal yang sama.
+- `effects.ts` baru: percikan saat materi hancur (dipicu dari perbandingan dua
+  snapshot, jadi presentasi murni dan tidak bisa desync) plus mote ambient.
+- Penyihir digambar ulang: lebih bulat, bermata, bertongkat dengan ujung
+  bercahaya, idle bob, bayangan kontak, dan cincin Wobble.
+- Kamera baru di `viewport.ts`: `targetFrame()` + `easeFrame()` dengan easing
+  `1 - e^(-k·dt)` yang independen frame rate. Konstanta kamera diletakkan di
+  **shared** CONFIG, bukan renderer, karena zoom Draw mengubah berapa Ink yang
+  dibeli satu sapuan jari — `ink.costPerUnitLength` dikalibrasi terhadapnya.
+- Portrait: dua kartu pemain (≈5rem) diganti satu baris `scoreline`, readout
+  rune di-overlay di atas canvas, dan canvas mengambil
+  `calc(100dvh - 11.5rem)`. Sekitar 4.5rem tinggi dikembalikan ke arena.
+- Readout mengganti "Ward reserve" dengan `nodes · mass · speed` plus badge
+  **Shield / Screen / Strike**, dihitung dari `predictLaunch()` yang sama
+  dipakai simulasi. Ini pengganti sifat 8 (informed commitment) setelah Ward
+  hilang: pemain harus bisa tahu, sebelum commit, apakah runenya menyeberang
+  atau jatuh di kakinya sendiri.
+
+### Verifikasi
+
+- **189 test hijau** pada 13 file (naik dari 176), typecheck bersih, build
+  produksi bersih (120 kB JS / 37 kB gzip).
+- Test baru mengunci dial: rune berat lebih lambat, jangkauan monoton turun
+  terhadap Ink, crossover ada di dalam rentang Ink yang bisa dimainkan,
+  `predictLaunch` cocok dengan body yang benar-benar disimulasikan, rune berat
+  kehilangan fraksi lebih kecil, materi segar tidak bisa kena pemiliknya,
+  materi terpantul ditandai, dan menggambar nol tidak memberi pertahanan.
+- Test kamera mengunci round-trip eksak dan uniformitas dua sumbu **pada level
+  zoom apa pun**, framing per pemain, pull-back bersama sejak Reveal, dan
+  easing yang sama di 60 Hz maupun 120 Hz.
+
+### Test yang saya ubah premisnya — dicatat jujur
+
+Tiga test lama gagal bukan karena kode salah, tapi karena premisnya mati:
+
+1. `mapping.test` mengukur budget Ink terhadap jarak arena penuh. Dengan kamera
+   Draw yang zoom, itu diam-diam jadi makin ketat setiap kali kamera dirapatkan.
+   Sekarang diukur terhadap frame Draw.
+2. `world.test` "heavy shrugs off light" membandingkan frame terakhir — di mana
+   kedua sisi sudah nol. Test itu **lulus secara vakum** sebelumnya. Sekarang
+   diukur pada frame terakhir di mana kedua sisi masih ada.
+3. `room.test` "eventually declares a winner" mengirim sapuan 80 titik — yang
+   sekarang justru cast terberat, terlambat, dan terpendek di game — dengan
+   sudut tetap ke target yang terus terdorong, menembus terrain. Membuat skrip
+   tetap menang 3 kali berarti men-tuning game agar sesuai test. Test dipecah
+   di sambungan yang seharusnya sejak awal: fisika membuktikan bisa menghasilkan
+   Star (dengan pembidikan balistik memakai `predictLaunch` yang sama), logika
+   winner sudah diuji terpisah di `match/state.test.ts` dan test forfeit.
+
+### Debt dan risiko yang sengaja dicatat
+
+- **Belum ada playtest manusia atas angka baru.** `impactTransfer`,
+  `knockbackLift`, `launchEnergy`, dan `minimumMass` semuanya disapu terhadap
+  simulasi, bukan terhadap manusia. Ini tetap wajib.
+- **Kristal masih bisa memblokir tembakan datar untuk satu Round penuh.**
+  Koridor sudah dilebarkan sehingga match tidak lagi deadlock, tapi jawabannya
+  tetap "lob melewatinya", dan belum ada apa pun di UI yang mengajarkan itu.
+  Kandidat perbaikan: garis prediksi lintasan opsional, atau regenerasi layout
+  per Turn alih-alih per Round.
+- **`kind: 'stalactite' | 'stalagmite'` masih dipakai di protokol** meski
+  sekarang dirender sebagai kristal langit. Rename adalah churn protokol; ditunda.
+- `arena.ts` (renderer Spell Lab Stage 0) hanya dipetakan ulang ke nama palet
+  baru, belum ikut dipoles.
+- Interpolasi antar-snapshot, simulasi lag, audio, movement Setup, deployment
+  internet, dan physics-library spike tetap belum selesai.
+- `match/roles.ts` sengaja ditinggal sebagai tombstone berisi penjelasan, bukan
+  dihapus, supaya pembaca berikutnya tidak menemukan ulang mekanik yang sama.
+
+### Catatan untuk Codex
+
+Kalau kamu menyentuh `runeBody.ts` atau `world.ts`, jalankan `world.test.ts`
+lebih dulu. Blok `describe('Ink is the offence/defence dial')` adalah keseluruhan
+desain game ini dalam empat test — kalau salah satunya merah, game-nya sudah
+kembali jadi "dua pemain melempar benda yang sama".
+
+Dan satu pola yang terulang dari review Sesi 8: **test yang mengukur di titik
+paling nyaman bisa lulus secara vakum.** Test "heavy shrugs off light" hari ini
+membandingkan nol dengan nol dan lulus. Kalau sebuah sifat disebut penting,
+testnya harus menyerang kasus tersulit, dan harus dicek bahwa ia benar-benar
+bisa gagal.
+
+---
+
+## 2026-08-02 — Sesi 11: Full obstacle collision, seeded layouts, dan mobile UX
+
+**Pelaksana:** Codex, melanjutkan feedback visual dan gameplay user.
+
+### Bug arena yang diperbaiki
+
+- Penyebab spell melewati stalaktit/stalagmit ditemukan: visual menggambar
+  segitiga penuh, tetapi physics hanya memakai lingkaran kecil di ujungnya.
+- Collider sekarang benar-benar circle-vs-triangle pada ketiga face melalui
+  pure math di `shared/src/sim/collision.ts`. Posisi dikoreksi keluar dari face
+  lalu velocity direfleksikan memakai restitution dari config.
+- Ditambah swept collision untuk kasus partikel cepat yang masuk dan keluar
+  dari satu obstacle di antara dua fixed timestep. Tembakan tidak lagi bisa
+  tunnelling menembus segitiga.
+- Player memakai collision path segitiga yang sama. Obstacles tidak memiliki
+  HP, integrity, atau state mutable: selalu statis, tidak dapat hancur, dan
+  hanya memantulkan. Energy/integrity yang berkurang adalah milik spell.
+
+### Randomisasi authoritative
+
+- Daftar obstacle hardcoded diganti generator data-driven di
+  `CONFIG.hazards.generation`: count, x-range, jitter, width, height, ceiling,
+  dan spawn clearance seluruhnya dapat dituning tanpa mengubah rumus.
+- Layout dipilih dari seeded PRNG per Round. Seed/Round sama menghasilkan
+  layout identik; Round atau match berbeda menghasilkan layout baru.
+- Layout sekarang bagian dari `RoomView`, `ResolveInput`, `World`, dan
+  `Snapshot`. Renderer tidak lagi membaca obstacle statis sendiri, sehingga
+  kedua client selalu melihat geometry yang dipakai server untuk collision.
+
+### UI/UX portrait
+
+- Arena mobile dinaikkan menjadi `clamp(22.5rem, 54dvh, 30rem)`; pada viewport
+  390×844 ukurannya 367×456 px, dibanding sekitar 277 px pada screenshot awal.
+- Ditambah flow `Draw → Aim → Clash` dengan phase aktif, label Round/Turn,
+  warna role Attack/Counter, dan badge gabungan wind + jumlah reflector.
+- Hint diberi backdrop agar terbaca di cave, obstacle diberi outline/facet agar
+  seluruh face terbaca solid, dan rune readout mobile sekarang wrap alih-alih
+  terpotong.
+- Pengukuran browser 390×844: `scrollWidth=390`, `scrollHeight=844`, readout
+  selesai di y=761; tidak ada overflow dan console dua client bersih.
+
+### Verifikasi
+
+- 176 test hijau pada 13 file, termasuk full-face collision jauh dari tip,
+  reflection, anti-tunnelling, obstacle immutability, seeded variation, dan
+  layout yang tetap sama di seluruh snapshot Resolve.
+- Typecheck dan production build bersih.
+- Dua browser nyata masuk room yang sama dan melihat role serta environment
+  yang sama; layout portrait diuji pada override 390×844.
+
+### Meta/debt
+
+- Restitution dan energy loss masih angka vertical-slice dan tetap wajib
+  human playtest. Semua knob-nya sudah terpisah di `CONFIG.hazards`.
+- Swept test saat ini menjamin crossing pusat partikel; circle-face overlap
+  menangani grazing pada fixed timestep normal. Physics-library spike masih
+  debt sebelum production.
+
+## 2026-08-02 — Sesi 10: Rune-body combat, roles, Cast, wind, dan cave hazards
+
+**Pelaksana:** Codex, berdasarkan keputusan produk user setelah Sesi 9.
+
+Combat lama yang mengubah motif menjadi projectile/field generik diganti oleh
+literal rune-body. Coretan apa pun—termasuk nama—sekarang menjadi rangkaian
+partikel dan bond yang benar-benar ikut physics. Classifier masih dipakai untuk
+telemetry/Ink canonical, tetapi tidak bisa lagi membuat bentuk “tidak berguna”.
+
+### Flow dan role
+
+- Turn sekarang `Setup → Draw → Cast → Reveal → Resolve → Score` dan tetap 21
+  detik maksimum.
+- Server menugaskan tepat satu `ATTACK` dan satu `COUNTER`; role bertukar setiap
+  Turn dan tampil jelas di kedua HUD.
+- Cast adalah drag kedua selama dua detik. Hanya arah yang dibaca; panjang drag
+  dan pointer speed tidak memberi power. Aim tetap dalam cone menuju lawan.
+- UI `Light / E / Push` dan nama motif di match dihapus. Readout hanya
+  menampilkan particle count, committed Ink, dan Ward reserve.
+
+### Rune-body dan konservasi
+
+- `shared/src/spells/runeBody.ts` adalah pure builder: stroke di-resample menjadi
+  6–28 partikel, diskalakan, diputar ke arah Cast, lalu diberi massa, energi,
+  integrity, dan bond.
+- Persilangan menambah cross-bond yang lebih kuat. Bond juga capsule collider,
+  bukan sekadar garis renderer, sehingga loop/tulisan benar-benar menahan
+  serpihan lawan.
+- Collision dapat memutus bond tetapi tidak menghapus partikel. Fragmen tetap
+  dipengaruhi gravity, wind, obstacle, dan dapat memberi Wobble selama masih
+  memiliki energi.
+- Attack energy yang hilang saat mengenai Counter adalah satu-satunya sumber
+  `counterCharge`. Charge dibatasi Ink Counter dan efisiensi return; Counter
+  tanpa benturan Attack dikunci test agar menghasilkan nol damage.
+- Total particle energy + counterCharge tidak boleh naik. Fragmentasi membagi
+  budget, tidak menggandakan damage.
+- Reserved Ink menjadi Ward parsial. Ward tidak boleh 100% meniadakan hit,
+  supaya strategi “tidak menggambar” tidak menghasilkan invulnerability.
+
+### Mini-Gunbound environment
+
+- Wind dipilih seeded per Round, terlihat sebelum Draw, dan memengaruhi semua
+  partikel sebagai acceleration.
+- Cave memiliki stalaktit/stalagmit dari config bersama. Triangle dirender dari
+  data yang sama; tip collider memantulkan spell, merusak energy/integrity, dan
+  dapat menambah impact pemain.
+- Seluruh angka meta dipindah ke `CONFIG.aim`, `wind`, `hazards`, dan `runeBody`.
+  Rumus dan tuning map ditulis di `DESIGN-RUNE-BODY-COMBAT.md`.
+
+### Verifikasi
+
+- Room browser nyata `4TLY`: role Attack/Counter konsisten di dua client dan
+  terbukti bertukar pada Turn berikutnya; keduanya melihat wind yang sama.
+- Dua pemain menggambar zigzag/loop, melakukan gesture Cast tanpa tombol, lalu
+  menerima Reveal yang sama: 19-particle Attack melawan 16-particle Counter.
+- Resolve visual menunjukkan dua rune-body bertabrakan, bond/partikel terpisah,
+  counter-charge aura, cave collider, dan Ward. Console kedua client bersih.
+- 169 test hijau pada 12 file, typecheck/build bersih, audit 0.
+
+### Risiko dan debt yang sengaja dicatat
+
+- Physics masih handwritten vertical-slice. `playerImpactScale: 20` sengaja
+  agresif agar KO tetap reachable dan **wajib** dituning lewat human playtest,
+  bukan dianggap angka production.
+- Maksimum 28 node per rune dan circle/capsule approximation adalah budget MVP,
+  bukan soft-body final.
+- Viewport override browser pada sesi ini tidak benar-benar berpindah ke 390px,
+  jadi perubahan HUD baru belum diklaim terverifikasi pada device asli. CSS
+  responsive/safe-area dari Sesi 9 tetap ada; real iPhone test masih wajib.
+- Interpolation, lag simulation, audio/VFX, movement Setup, deployment internet,
+  dan physics-library spike masih belum selesai.
+
+## 2026-08-02 — Sesi 9: Minimal multiplayer playable
+
+**Pelaksana:** Claude (sim/protocol/server awal), Codex (client completion,
+production audit, browser verification)
+
+Vertical slice online sekarang bisa dimainkan end-to-end. Dua pemain membuat
+atau masuk room lewat kode empat karakter, menggambar bersamaan, melihat Reveal
+yang sama, menerima snapshot physics dari server, mendapat Star saat KO, lalu
+lanjut sampai winner/rematch. Client hanya mengirim stroke; phase, pembacaan
+spell, physics, dan score tetap server-authoritative.
+
+### Yang ditambahkan
+
+1. `shared/src/sim`: fixed-timestep deterministic simulation dengan seeded
+   randomness, Wobble carry-over, projectiles/fields, KO, dan snapshots.
+2. `shared/src/protocol`: schema pesan runtime untuk join, submit, Reveal,
+   snapshots, score, reconnect, dan rematch.
+3. `server`: room manager, authoritative phase loop, WebSocket adapter, room
+   code, reconnect token, dan test dua client headless/no-desync.
+4. `client`: lobby create/join, session reconnect, phase/timer/HUD, wild-spell
+   capture dan preview, renderer snapshot, score/winner/rematch, serta layout
+   responsive dengan safe-area dan touch input untuk iPhone.
+5. Root `npm run play` menjalankan client dan server bersama; build root sekarang
+   juga membangun server.
+
+### Bug produksi yang ditemukan Codex saat melanjutkan
+
+1. Room dimulai dengan timestamp `0`, lalu tick produksi memakai epoch
+   `Date.now()`. Akibatnya Setup langsung terlewati. Semua join/start/rematch
+   sekarang memakai clock yang sama dan dikunci test regresi.
+2. Kode room salah sebelumnya diam-diam bisa membuat room baru yang tidak dapat
+   dimasuki lawan. Join berkode sekarang hanya mencari room existing dan
+   mengembalikan `room not found`.
+3. Room kosong langsung dihapus saat socket putus, sehingga reconnect token
+   sebenarnya tidak pernah berguna. Seat/room sekarang ditahan selama window
+   30 detik dan baru direap setelahnya. Socket-close lama tidak bisa memutus
+   socket pengganti; match berhenti di Setup pada batas Turn, dan lewat 30 detik
+   memberi kemenangan pada lawan sesuai A-06.
+4. Input hostile hanya dibatasi jumlah point; koordinat ekstrem dan arc length
+   belum direpair meskipun kontrak mengklaim sebaliknya. Server kini clamp
+   koordinat dan truncate path sebelum classifier/sim, dengan test `1e308` yang
+   memastikan semua frame tetap finite.
+5. Token reconnect memakai `Math.random()`, bertentangan dengan aturan repo dan
+   buruk untuk credential. Sekarang memakai `crypto.randomUUID()`; randomness
+   gameplay tetap seeded dan terpisah.
+6. Reset UI winner bisa terpicu pada initial room, dan force internal Indonesia
+   bocor ke UI Inggris. Kondisi reset diperketat; label kini Light/Medium/Heavy.
+
+### Verifikasi nyata
+
+- Dua browser riil bergabung ke room `B9MM` sebagai Codex dan Claude.
+- Keduanya menggambar zigzag berlawanan secara simultan dan menerima Reveal
+  simetris: Medium E/W dengan Push + tiga Ricochet.
+- Resolve menghasilkan Star yang identik di kedua client dan match berlanjut.
+- Reload satu browser berhasil reclaim seat, nama, room, dan score lewat token.
+- Viewport iPhone 390×844 diperiksa visual; HUD, arena, Ink, dan readout tetap
+  terbaca tanpa error/warning console.
+- 164 test hijau, typecheck/build bersih, audit dependency 0.
+
+### Sengaja belum disebut selesai
+
+Physics saat ini handwritten untuk vertical slice, bukan keputusan production;
+spike library di PRD masih wajib. Movement Setup, deployment internet,
+interpolation/lag simulation, audio/VFX polish,
+dan playtest manusia pada device asli juga belum ada. Jadi ini **minimal
+multiplayer playable**, bukan game selesai.
+
 ## 2026-08-02 — Sesi 8: Review Claude atas V2 + fix property-8
 
 **Pelaksana:** Claude (review + fix), Codex (implementasi sesi 7)
