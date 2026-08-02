@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Spell Lab — Draw Magic. Expect Chaos.</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="lab">
+      <header class="lab__header">
+        <div>
+          <h1>Spell Lab</h1>
+          <p class="lab__tagline">Draw magic. Expect chaos.</p>
+        </div>
+        <label class="assist">
+          <span>Draw assist</span>
+          <select id="assist">
+            <option value="standard">Standard</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+      </header>
+
+      <section class="stage">
+        <canvas id="arena" aria-label="Drawing area"></canvas>
+        <p class="stage__hint" id="hint">Draw anywhere on the island.</p>
+        <div class="ink" aria-label="Ink meter">
+          <div class="ink__bar"><span id="ink-fill"></span></div>
+          <span class="ink__label" id="ink-label">Ink 100%</span>
+        </div>
+      </section>
+
+      <aside class="readout">
+        <div class="verdict">
+          <span class="verdict__family" id="family">Draw something</span>
+          <span class="verdict__blurb" id="blurb">Any single line becomes a spell.</span>
+          <div class="verdict__confidence">
+            <div class="meter"><span id="confidence-fill"></span></div>
+            <span id="confidence-label">—</span>
+          </div>
+        </div>
+
+        <h2>What the drawing decided</h2>
+        <dl class="params" id="params"></dl>
+
+        <h2>Discovered <span id="discovered-count">0/4</span></h2>
+        <ul class="families" id="families"></ul>
+        <p class="families__note" id="families-note">
+          Find all four and the lab is proven.
+        </p>
+      </aside>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

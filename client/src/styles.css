@@ -1,0 +1,277 @@
+/*
+ * PRD §12: parchment-dark UI with cream ink.
+ * PRD §14: the UI must scale, so sizing is in rem and the layout reflows
+ * rather than assuming a desktop window.
+ */
+
+:root {
+  --parchment: #1d1b2b;
+  --parchment-raised: #262338;
+  --edge: #3a3550;
+  --ink: #efe4cc;
+  --ink-dim: rgba(239, 228, 204, 0.62);
+  --ink-faint: rgba(239, 228, 204, 0.18);
+  --accent: #f0b45c;
+  font-size: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.lab {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 21rem;
+  grid-template-areas: 'header header' 'stage readout';
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 76rem;
+  margin: 0 auto;
+}
+
+@media (max-width: 60rem) {
+  .lab {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'header' 'stage' 'readout';
+  }
+}
+
+.lab__header {
+  grid-area: header;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--edge);
+  padding-bottom: 0.6rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: 0.02em;
+}
+
+h2 {
+  margin: 1.4rem 0 0.5rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  display: flex;
+  justify-content: space-between;
+}
+
+.lab__tagline {
+  margin: 0.15rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.assist {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.assist select {
+  background: var(--parchment-raised);
+  color: var(--ink);
+  border: 1px solid var(--edge);
+  border-radius: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.stage {
+  grid-area: stage;
+  position: relative;
+  border: 1px solid var(--edge);
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: #2a3358;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  /* The canvas is the aiming surface (A-04); the browser must not steal the
+     gesture for scrolling or text selection mid-stroke. */
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.stage__hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.6rem;
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.ink {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  right: 0.7rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  pointer-events: none;
+}
+
+.ink__bar {
+  flex: 1;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.ink__bar span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--ink);
+  transition: width 0.06s linear, background-color 0.2s ease;
+}
+
+.ink__bar span.is-low {
+  background: var(--accent);
+}
+
+.ink__label {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+.readout {
+  grid-area: readout;
+  border: 1px solid var(--edge);
+  border-radius: 0.6rem;
+  padding: 1rem;
+  background: var(--parchment-raised);
+}
+
+.verdict__family {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.verdict__blurb {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+  min-height: 2.4em;
+}
+
+.verdict__confidence {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+
+.meter {
+  flex: 1;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: currentColor;
+  transition: width 0.15s ease;
+}
+
+.params {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.28rem 0.9rem;
+  font-size: 0.82rem;
+}
+
+.params dt {
+  color: var(--ink-dim);
+}
+
+.params dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.families {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.families li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  font-size: 0.85rem;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.families li.is-found {
+  opacity: 1;
+}
+
+.families li .dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex: none;
+}
+
+.families li .how {
+  color: var(--ink-dim);
+  font-size: 0.76rem;
+  margin-left: auto;
+}
+
+.families__note {
+  margin: 0.8rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+
+.families__note.is-complete {
+  color: var(--accent);
+}
