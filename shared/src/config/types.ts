@@ -87,8 +87,8 @@ export interface WobbleConfig {
    * 1.0 and it interpolates linearly to this value.
    */
   readonly knockbackMultiplierAtMax: number;
-  /** Wobble bled off per second while a player is grounded and idle. */
-  readonly decayPerSecond: number;
+  /** M-06 — Wobble shed at the start of each new Turn. */
+  readonly decayPerTurn: number;
 }
 
 export interface ScoringConfig {
@@ -98,6 +98,8 @@ export interface ScoringConfig {
   readonly doubleKoWindowMs: number;
   /** A-02 — tightened window during Sudden Death so the match converges. */
   readonly doubleKoWindowSuddenDeathMs: number;
+  /** M-01 — Turns after which a Round ends on Wobble instead of looping. */
+  readonly turnCapPerRound: number;
 }
 
 export interface MovementConfig {
@@ -157,6 +159,18 @@ export interface AimConfig {
  * arena distance a stroke covers and therefore feeds back into Ink cost.
  */
 export interface CameraConfig {
+  /**
+   * Locked arena canvas aspect ratio, width / height. Every device renders
+   * this exact shape and letterboxes the remainder.
+   *
+   * This is a fairness constant, not a layout preference. `createViewport`
+   * derives `scale` from canvas width alone, so the arena height a player can
+   * see — and therefore the Ink a vertical gesture costs — is a pure function
+   * of the canvas aspect. Letting the canvas take whatever height the device
+   * has left gave a tall phone ~2.9x the vertical Ink cost of a desktop and a
+   * different amount of visible arena to aim with. See A-09.
+   */
+  readonly arenaAspectRatio: number;
   /** Arena half-width visible while both players draw and aim. */
   readonly drawHalfWidth: number;
   /** Arena half-width visible during Reveal, Resolve, and Score. */
@@ -171,10 +185,12 @@ export interface CameraConfig {
 }
 
 export interface WindConfig {
-  /** Horizontal acceleration is selected from these signed magnitudes per Round. */
+  /** Magnitudes selected per Round. Sign chooses inward vs outward (M-02). */
   readonly accelerationLevels: readonly number[];
   /** Small vertical lift keeps wind readable without overpowering gravity. */
   readonly verticalLiftFraction: number;
+  /** Ramp distance from calm at the centre to full strength. See M-02. */
+  readonly centreSpanX: number;
 }
 
 export interface HazardSpikeConfig {

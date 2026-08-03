@@ -16,7 +16,7 @@ export const WIZARD_SPRITE_LAYOUT = Object.freeze({
   canvasSize: 176,
   pivotX: 92,
   pivotY: 131,
-  worldCanvasSize: 0.48,
+  worldCanvasSize: 0.56,
   idleFrameMs: 160,
 });
 

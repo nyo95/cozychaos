@@ -164,10 +164,33 @@ fragments remain procedural, and environment pixels remain presentation-only.
 See the pack-local `README.md` and `manifest.json` for integration guardrails.
 
 The target now informs the responsive HTML/CSS hierarchy, colour, wind
-emphasis, and compact phase treatment, but no generated pixels were promoted
-to runtime. The cyan hit/rescue-KO concept was rejected: feet and pose bounds
+emphasis, and compact phase treatment. The first implementation pass did not
+promote generated pixels; the follow-up below promotes only independently
+validated presentation assets. The cyan hit/rescue-KO concept was rejected: feet and pose bounds
 move substantially between cells, rescue bubbles change the occupied box, and
 right-edge content is clipped. Promotion requires hand-cleaned per-frame
 bounds, a stable foot/pelvis anchor, repaired edge pixels, and validation at
 48 px and 80 px before deterministic pink palette remapping. The accepted
 idle/cast pilot and procedural fallback remain safer.
+
+## Mobile runtime art pass — Session 18
+
+OpenAI ImageGen produced
+`client/public/assets/mobile-ui/backgrounds/mobile-dream-sky.png` from the
+accepted mobile composition and PixelLab environment references. The source
+prompt required a scenery-only 9:16 sky: central combat corridor open, cloud
+banks restricted to the edges, and no island, crystal, wizard, rune, arrow,
+HUD, text, or logo. The repository copy is 852×1846, palette-quantized to 192
+colours without resizing, 399,635 bytes, SHA-256
+`52f327d75d3ba2867cad6cee8c16fde0b5d2ab885ee68a215cf3581765a59eb9`.
+The renderer uses it only for portrait stages and retains the procedural sky
+as both its decode-failure and landscape fallback.
+
+The deterministic pipeline in `tools/extract_mobile_ui_assets.py` also
+promotes nine independently cropped RGBA assets from the concept sheets:
+three HUD ornaments and six presentation-only VFX strips. Exact crop bounds,
+dimensions, animation layout, alpha coverage, and hashes live in
+`client/public/assets/mobile-ui/extracted-assets.json`. No generated island or
+crystal is promoted because those pixels would not match authoritative
+collision geometry. No fixed projectile is promoted; rune matter remains
+derived from simulation state.

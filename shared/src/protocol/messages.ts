@@ -66,6 +66,27 @@ export interface CastMessage {
   readonly direction: Vec2;
 }
 
+/**
+ * Held-direction movement intent for the Setup phase (M-04, A-08).
+ *
+ * This carries *intent*, never position. The server integrates it, so a client
+ * cannot claim to be somewhere it could not have walked to, and there is no
+ * client-side prediction to reconcile.
+ *
+ * Sent on change rather than per frame: the server holds the last intent until
+ * the next one arrives, so a dropped repeat does not stop a player mid-stride.
+ * The cost of that choice is that a lost *release* keeps a player walking until
+ * the next message or the end of Setup — which is why the client also sends a
+ * neutral intent when the phase ends and when the window loses focus.
+ */
+export interface MoveMessage {
+  readonly type: 'move';
+  /** -1 left, 0 neither, +1 right. Anything else is rejected at the boundary. */
+  readonly direction: -1 | 0 | 1;
+  /** Edge-triggered. The server consumes one jump and ignores repeats. */
+  readonly jump: boolean;
+}
+
 export interface RematchMessage {
   readonly type: 'rematch';
 }
@@ -74,7 +95,13 @@ export interface LeaveMessage {
   readonly type: 'leave';
 }
 
-export type ClientMessage = JoinMessage | SubmitStrokeMessage | CastMessage | RematchMessage | LeaveMessage;
+export type ClientMessage =
+  | JoinMessage
+  | SubmitStrokeMessage
+  | CastMessage
+  | MoveMessage
+  | RematchMessage
+  | LeaveMessage;
 
 // ── Server → Client ────────────────────────────────────────────────────────
 
@@ -104,6 +131,41 @@ export interface FrameMessage {
   readonly snapshot: Snapshot;
 }
 
+/**
+ * Authoritative wizard positions during Setup (M-04).
+ *
+ * A separate, tiny message rather than fields on `RoomView`: the room view
+ * carries the obstacle layout and player roster, and re-broadcasting all of
+ * that at tick rate to animate two moving dots would be wasteful. It also keeps
+ * `RoomView` a "changes rarely" message, which is what the client's diffing
+ * assumes.
+ *
+ * The client renders these directly and never integrates its own. That is the
+ * whole point: what you see is where the server says you are.
+ */
+export interface SetupFrameMessage {
+  readonly type: 'setupFrame';
+  readonly positions: readonly [Vec2, Vec2];
+  /** Remaining jumps per slot, so the HUD can grey out a spent jump button. */
+  readonly jumpsLeft: readonly [number, number];
+}
+
+/**
+ * M-03 — the server's answer to a `submit` or `cast`.
+ *
+ * Without this the client showed "Rune locked" the moment it called `send()`,
+ * which is a claim about a socket, not about the match. A stroke dropped for
+ * arriving after the phase closed looked identical to one that was accepted,
+ * and the player only found out at Reveal when nothing of theirs appeared.
+ */
+export interface AckMessage {
+  readonly type: 'ack';
+  readonly of: 'submit' | 'cast';
+  readonly accepted: boolean;
+  /** Present only when `accepted` is false. */
+  readonly reason?: 'phase-closed' | 'already-submitted';
+}
+
 export interface ScoreMessage {
   readonly type: 'score';
   readonly stars: readonly number[];
@@ -121,6 +183,8 @@ export type ServerMessage =
   | RoomStateMessage
   | RevealMessage
   | FrameMessage
+  | SetupFrameMessage
+  | AckMessage
   | ScoreMessage
   | ErrorMessage;
 
@@ -176,6 +240,15 @@ export function parseClientMessage(raw: string, maxPoints: number): ClientMessag
       if (typeof direction['x'] !== 'number' || typeof direction['y'] !== 'number') return null;
       if (!Number.isFinite(direction['x']) || !Number.isFinite(direction['y'])) return null;
       return { type: 'cast', direction: { x: direction['x'], y: direction['y'] } };
+    }
+    case 'move': {
+      // Direction is an enum on the wire, not a number to be scaled. Accepting
+      // an arbitrary float here would let a client walk at any speed it liked,
+      // which is exactly the geometry cheat `repairStroke` closes for strokes.
+      const direction = message['direction'];
+      if (direction !== -1 && direction !== 0 && direction !== 1) return null;
+      if (typeof message['jump'] !== 'boolean') return null;
+      return { type: 'move', direction, jump: message['jump'] };
     }
     case 'rematch':
       return { type: 'rematch' };

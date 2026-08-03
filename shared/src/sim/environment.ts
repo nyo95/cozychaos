@@ -9,17 +9,40 @@ export interface TurnEnvironment {
   readonly obstacles: readonly HazardSpikeConfig[];
 }
 
-/** Pure, seeded environment selection. Wind and obstacles stay stable per Round. */
+/**
+ * Pure, seeded environment selection. Wind and obstacles stay stable per Round.
+ *
+ * M-02 — `wind.x` is no longer "push everything right by this much". It is the
+ * signed strength of a radial field: positive blows outward from the centre,
+ * negative draws inward. `windAccelerationX` turns it into a force at a point.
+ */
 export function createTurnEnvironment(seed: number, round: number): TurnEnvironment {
   const windRng = createRandom(deriveSeed(seed, `wind:${round}`));
   const levels = CONFIG.wind.accelerationLevels;
   const magnitude = levels[Math.min(levels.length - 1, Math.floor(windRng.next() * levels.length))] ?? 0;
+  // Sign now chooses outward vs inward rather than right vs left. Both are
+  // symmetric, so neither slot is favoured by the draw.
   const sign = windRng.next() < 0.5 ? -1 : 1;
   const x = magnitude * sign;
   return {
     wind: { x, y: Math.abs(x) * CONFIG.wind.verticalLiftFraction },
     obstacles: createObstacles(seed, round),
   };
+}
+
+/**
+ * Horizontal wind acceleration at a point.
+ *
+ * Odd in `x` by construction — `f(-x) = -f(x)` — which is the whole reason the
+ * field is fair: mirroring the arena negates every horizontal force, so
+ * mirrored play produces mirrored outcomes. `sim/world.test.ts` locks that as
+ * an invariant; if this stops being odd, that test is the one that fails.
+ */
+export function windAccelerationX(wind: Vec2, x: number): number {
+  const span = CONFIG.wind.centreSpanX;
+  if (span <= 0) return wind.x >= 0 ? wind.x : -wind.x;
+  const ramp = Math.max(-1, Math.min(1, x / span));
+  return wind.x * ramp;
 }
 
 function createObstacles(seed: number, round: number): readonly HazardSpikeConfig[] {

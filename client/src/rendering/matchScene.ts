@@ -8,6 +8,12 @@ import {
   type Vec2,
 } from '@cozy/shared';
 import { PALETTE, mix, withAlpha } from './palette.js';
+import {
+  crystalObstacleImage,
+  floatingIslandImage,
+  mobileSkyImage,
+  runeNodeImage,
+} from './sceneAssets.js';
 import { toPixels, toScreen, visibleBounds, type Viewport } from './viewport.js';
 import type { SceneEffects } from './effects.js';
 import {
@@ -55,11 +61,13 @@ export function drawMatchScene(
   viewport: Viewport,
   scene: MatchScene,
 ): void {
-  drawSky(ctx, viewport, scene.timeMs);
-  drawAurora(ctx, viewport, scene.timeMs);
-  drawStars(ctx, viewport, scene.timeMs);
-  drawFarIslands(ctx, viewport, scene.timeMs, scene.wind);
-  drawClouds(ctx, viewport, scene.timeMs, scene.wind);
+  const usesMobileSky = drawSky(ctx, viewport, scene.timeMs);
+  if (!usesMobileSky) {
+    drawAurora(ctx, viewport, scene.timeMs);
+    drawStars(ctx, viewport, scene.timeMs);
+    drawFarIslands(ctx, viewport, scene.timeMs, scene.wind);
+    drawClouds(ctx, viewport, scene.timeMs, scene.wind);
+  }
   scene.effects.drawMotes(ctx, viewport, scene.timeMs, scene.wind);
   drawCrystals(ctx, viewport, scene.obstacles, scene.timeMs);
   drawIsland(ctx, viewport, scene.timeMs);
@@ -97,7 +105,7 @@ function hash01(seed: number): number {
   return (x >>> 0) / 4294967296;
 }
 
-function drawSky(ctx: CanvasRenderingContext2D, viewport: Viewport, timeMs: number): void {
+function drawSky(ctx: CanvasRenderingContext2D, viewport: Viewport, timeMs: number): boolean {
   // The horizon is anchored in arena space, so the gradient stays glued to the
   // world when the camera zooms instead of sliding across it.
   const horizon = toScreen(viewport, { x: 0, y: -0.15 }).y;
@@ -130,6 +138,33 @@ function drawSky(ctx: CanvasRenderingContext2D, viewport: Viewport, timeMs: numb
   glow.addColorStop(1, withAlpha(PALETTE.skyGlow, 0));
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, viewport.width, viewport.height);
+
+  // The generated plate is intentionally scenery-only. Authoritative island,
+  // obstacle, wizard, and spell geometry is still rendered below from state.
+  // Landscape keeps the procedural art because cropping a portrait plate that
+  // far would make its cloud banks dominate the combat corridor.
+  const image = viewport.height > viewport.width * 1.1 ? mobileSkyImage() : null;
+  if (!image) return false;
+  const scale = Math.max(viewport.width / image.naturalWidth, viewport.height / image.naturalHeight);
+  const sourceWidth = viewport.width / scale;
+  const sourceHeight = viewport.height / scale;
+  const sourceX = (image.naturalWidth - sourceWidth) / 2;
+  const sourceY = (image.naturalHeight - sourceHeight) / 2;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    viewport.width,
+    viewport.height,
+  );
+  ctx.restore();
+  return true;
 }
 
 function drawAurora(ctx: CanvasRenderingContext2D, viewport: Viewport, timeMs: number): void {
@@ -283,33 +318,58 @@ function drawCrystals(
     const left = vertical ? { x: base.x - half, y: base.y } : { x: base.x, y: base.y - half };
     const right = vertical ? { x: base.x + half, y: base.y } : { x: base.x, y: base.y + half };
     const shimmer = 0.5 + 0.5 * Math.sin(timeMs / 1800 + index * 1.7);
+    const sprite = vertical ? crystalObstacleImage() : null;
 
-    ctx.save();
-    ctx.shadowColor = withAlpha(PALETTE.crystalCore, 0.55);
-    ctx.shadowBlur = toPixels(viewport, 0.06) * (0.6 + shimmer * 0.6);
-
-    const body = ctx.createLinearGradient(left.x, left.y, tip.x, tip.y);
-    body.addColorStop(0, PALETTE.crystalDeep);
-    body.addColorStop(0.55, PALETTE.crystalFace);
-    body.addColorStop(1, mix(PALETTE.crystalFace, PALETTE.crystalCore, 0.6 + shimmer * 0.4));
-    ctx.fillStyle = body;
-    ctx.beginPath();
-    ctx.moveTo(left.x, left.y);
-    ctx.lineTo(right.x, right.y);
-    ctx.lineTo(tip.x, tip.y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // Two internal facets from the true midpoint: the whole face reads solid.
     const mid = { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 };
-    ctx.fillStyle = withAlpha(PALETTE.crystalCore, 0.22);
-    ctx.beginPath();
-    ctx.moveTo(mid.x, mid.y);
-    ctx.lineTo(tip.x, tip.y);
-    ctx.lineTo(left.x, left.y);
-    ctx.closePath();
-    ctx.fill();
+    if (sprite) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(left.x, left.y);
+      ctx.lineTo(right.x, right.y);
+      ctx.lineTo(tip.x, tip.y);
+      ctx.closePath();
+      ctx.clip();
+      ctx.imageSmoothingEnabled = false;
+      ctx.shadowColor = withAlpha(PALETTE.crystalCore, 0.55);
+      ctx.shadowBlur = toPixels(viewport, 0.06) * (0.6 + shimmer * 0.6);
+      const spriteHeight = Math.abs(base.y - tip.y);
+      if (tip.y < base.y) {
+        ctx.drawImage(sprite, base.x - half, tip.y, half * 2, spriteHeight);
+      } else {
+        // The source crystal points upward. Reflect it around the midpoint so a
+        // ceiling spike keeps the authoritative base and tip exactly aligned.
+        ctx.translate(0, base.y + tip.y);
+        ctx.scale(1, -1);
+        ctx.drawImage(sprite, base.x - half, base.y, half * 2, spriteHeight);
+      }
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.shadowColor = withAlpha(PALETTE.crystalCore, 0.55);
+      ctx.shadowBlur = toPixels(viewport, 0.06) * (0.6 + shimmer * 0.6);
+
+      const body = ctx.createLinearGradient(left.x, left.y, tip.x, tip.y);
+      body.addColorStop(0, PALETTE.crystalDeep);
+      body.addColorStop(0.55, PALETTE.crystalFace);
+      body.addColorStop(1, mix(PALETTE.crystalFace, PALETTE.crystalCore, 0.6 + shimmer * 0.4));
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(left.x, left.y);
+      ctx.lineTo(right.x, right.y);
+      ctx.lineTo(tip.x, tip.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Procedural fallback retains facets when the candidate has not decoded.
+      ctx.fillStyle = withAlpha(PALETTE.crystalCore, 0.22);
+      ctx.beginPath();
+      ctx.moveTo(mid.x, mid.y);
+      ctx.lineTo(tip.x, tip.y);
+      ctx.lineTo(left.x, left.y);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     ctx.strokeStyle = withAlpha(PALETTE.crystalRim, 0.55 + shimmer * 0.25);
     ctx.lineWidth = 1.5;
@@ -335,6 +395,22 @@ function drawIsland(ctx: CanvasRenderingContext2D, viewport: Viewport, timeMs: n
   const right = toScreen(viewport, { x: half, y: 0 });
   const tip = toScreen(viewport, { x: 0, y: -0.72 });
   const width = right.x - left.x;
+  const sprite = floatingIslandImage();
+
+  if (sprite) {
+    // Candidate manifest: 1711x578, ground-centre anchor at (855.5, 72).
+    // Only the destination rectangle changes; world ground and collision do not.
+    const height = width * (578 / 1711);
+    const y = left.y - height * (72 / 578);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.shadowColor = 'rgba(18, 8, 58, .42)';
+    ctx.shadowBlur = toPixels(viewport, 0.1);
+    ctx.shadowOffsetY = toPixels(viewport, 0.035);
+    ctx.drawImage(sprite, left.x, y, width, height);
+    ctx.restore();
+    return;
+  }
 
   ctx.save();
   ctx.shadowColor = 'rgba(40, 24, 60, .38)';
@@ -476,6 +552,16 @@ function drawParticle(
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius * 1.65, 0, TAU);
     ctx.stroke();
+  }
+
+  const node = runeNodeImage(particle.owner);
+  if (node) {
+    const diameter = Math.max(9, radius * 2.5);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(node, point.x - diameter / 2, point.y - diameter / 2, diameter, diameter);
+    ctx.restore();
+    return;
   }
 
   ctx.fillStyle = withAlpha(colour, 0.96);
@@ -663,6 +749,20 @@ function drawStroke(
     ctx.stroke();
   }
   ctx.restore();
+
+  const node = runeNodeImage(slot);
+  if (!node) return;
+  const stride = Math.max(1, Math.ceil(stroke.length / 10));
+  const indexes = new Set<number>([0, stroke.length - 1]);
+  for (let index = stride; index < stroke.length - 1; index += stride) indexes.add(index);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  for (const index of indexes) {
+    const point = toScreen(viewport, stroke[index]!);
+    const diameter = index === 0 || index === stroke.length - 1 ? 15 : 12;
+    ctx.drawImage(node, point.x - diameter / 2, point.y - diameter / 2, diameter, diameter);
+  }
+  ctx.restore();
 }
 
 /**
@@ -682,23 +782,38 @@ function drawCastArrow(
 ): void {
   const direction = normalize(rawDirection, { x: slot === 0 ? 1 : -1, y: 0 });
   const from = toScreen(viewport, origin);
-  const to = toScreen(viewport, {
-    x: origin.x + direction.x * 0.46,
-    y: origin.y + direction.y * 0.46,
+  const projected = toScreen(viewport, {
+    x: origin.x + direction.x,
+    y: origin.y + direction.y,
   });
+  const screenDirection = normalize(
+    { x: projected.x - from.x, y: projected.y - from.y },
+    { x: slot === 0 ? 1 : -1, y: 0 },
+  );
+  const guideLength = Math.max(112, Math.min(176, viewport.width * 0.34));
+  const to = {
+    x: from.x + screenDirection.x * guideLength,
+    y: from.y + screenDirection.y * guideLength,
+  };
   ctx.save();
   ctx.shadowColor = withAlpha(SLOT_GLOW[slot], 0.8);
   ctx.shadowBlur = 10;
-  ctx.strokeStyle = SLOT_COLOUR[slot];
   ctx.fillStyle = SLOT_COLOUR[slot];
-  ctx.lineWidth = 4;
-  ctx.lineCap = 'round';
-  ctx.setLineDash([10, 7]);
-  ctx.beginPath();
-  ctx.moveTo(from.x, from.y);
-  ctx.lineTo(to.x, to.y);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  for (let index = 1; index <= 11; index += 1) {
+    const progress = index / 13;
+    const radius = 2.3 + progress * 1.3;
+    ctx.globalAlpha = 0.45 + progress * 0.55;
+    ctx.beginPath();
+    ctx.arc(
+      from.x + (to.x - from.x) * progress,
+      from.y + (to.y - from.y) * progress,
+      radius,
+      0,
+      TAU,
+    );
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
   const angle = Math.atan2(to.y - from.y, to.x - from.x);
   ctx.beginPath();
   ctx.moveTo(to.x, to.y);

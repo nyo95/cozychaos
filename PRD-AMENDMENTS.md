@@ -249,6 +249,127 @@ Baris PRD §15 dibaca sebagai:
 
 ---
 
+## A-08 — Platform MVP bergeser ke portrait mobile-first
+
+**Severity:** Serius — mengubah target platform yang dikunci PRD §3.
+
+### Masalah
+
+PRD §3 mengunci MVP ke *desktop web browser* dengan *input utama: mouse*, dan
+menyebut dukungan touch sebagai kewajiban arsitektur saja. Arah desain yang
+diputuskan BK pada 3 Agustus 2026 adalah sebaliknya: portrait mobile adalah
+bentuk utama, desktop menyesuaikan.
+
+Ini bukan keputusan layout. Tiga hal di PRD ikut bergeser bersamanya.
+
+### Resolusi
+
+**Platform MVP dibaca ulang sebagai:**
+
+> Portrait mobile web adalah target utama. Desktop adalah target yang wajib
+> tetap berjalan, dirender dengan geometri arena yang sama (A-09), bukan
+> sebagai layout kedua.
+
+Konsekuensi yang ikut terkunci:
+
+- **Input utama adalah sentuh.** Mouse tetap sah dan tidak boleh punya
+  keunggulan presisi yang dikodekan. Semua kontrol interaktif minimal 44×44 px.
+- **Gerak Setup memakai model held-direction** (kiri/kanan ditahan + satu
+  lompat per Setup), sesuai PRD §9 dan konstanta `movement.speed`,
+  `movement.jumpImpulse`, `movement.jumpsPerSetup` yang sudah ada. Model
+  tap-to-position ditolak karena menghapus lompatan dari PRD §9. Chrome bawah
+  wajib menyediakan tiga kontrol sentuh yang hanya aktif saat fase Setup.
+- **Durasi fase tidak berubah.** `phases.castMs` tetap `2000`. Timer `AIM 03.8`
+  pada mockup adalah art direction, bukan spesifikasi; menaikkannya akan
+  membawa Turn ke ~22.8 detik, melewati batas 22 detik di PRD §19.
+
+### Yang tidak berubah
+
+Gamepad tetap di luar scope. Aplikasi native tetap di luar scope; targetnya
+adalah web di browser mobile.
+
+---
+
+## A-09 — Rasio arena dikunci lintas device sebagai constraint keadilan
+
+**Severity:** Blocker — tanpa ini, device menentukan sebagian hasil duel.
+
+### Masalah
+
+`createViewport` menurunkan `scale` dari lebar canvas saja:
+
+```
+scale = width / (2 · camera.halfWidth)
+```
+
+Akibatnya berapa banyak arena yang terlihat **secara vertikal** adalah fungsi
+murni dari rasio canvas — dan karena Ink ditagih per satuan panjang busur di
+ruang arena (A-04 mengunci canvas gambar sebagai overlay 1:1), rasio canvas
+juga menentukan berapa Ink yang dibeli sebuah gestur vertikal.
+
+Implementasi mobile pertama membiarkan tinggi canvas mengambil sisa layar
+(`calc(100dvh - 9.75rem)` di HP, `aspect-ratio: 16/9` di desktop). Diukur di
+`.audit/probe-framing.mjs`:
+
+| Device | Sapuan setinggi layar |
+|---|---|
+| Desktop 16:9 | 42.5 Ink |
+| iPhone 14 Pro portrait | 122.9 Ink (**2.89×**) |
+| 390×844 portrait | 123.9 Ink (**2.92×**) |
+
+Dua pemain pada device berbeda karena itu (a) melihat jumlah arena yang berbeda
+untuk membidik, dan (b) membayar harga berbeda untuk rune dengan bentuk yang
+sama. Keduanya bertentangan dengan A-03 dan PRD §15.
+
+### Resolusi
+
+**`camera.arenaAspectRatio` dikunci ke `2/3` untuk semua device.** Canvas arena
+selalu dirender pada rasio ini; sisa ruang layar adalah letterbox, bukan arena.
+
+Kandidat yang diukur sebelum memilih:
+
+| Rasio | Frame vertikal | Catatan |
+|---|---|---|
+| 3:4 | −1.40 .. 1.80 | Kill floor −1.4 persis di tepi frame — KO resolve di luar layar. **Ditolak.** |
+| **2:3** | **−1.52 .. 1.92** | Pulau 87% lebar canvas; desktop letterbox 480×720. **Dipilih.** |
+| 0.64 | −1.60 .. 2.00 | Setara, tapi rasio non-standar tanpa keuntungan terukur. |
+| 9:16 | −1.84 .. 2.24 | 0.44 unit langit kosong ekstra tanpa gameplay di dalamnya. |
+| 9:19.5 | −2.30 .. 2.70 | Desktop letterbox menyusut ke 332×720. |
+
+Konstanta yang bergerak bersamanya:
+
+- `camera.fullHalfWidth` **1.45 → 1.15.** Pada 1.45 pulau menyusut ke 69% lebar
+  canvas di HP. 1.15 adalah framing tersempit yang masih memuat pulau (±1.0),
+  langit-langit kristal (1.3), dan kill floor (−1.4) dengan margin.
+- `camera.drawCenterBias` **0.30 → 0.36.** Pada 0.30 tepi kanan frame Draw
+  berhenti di 0.60 sementara sisi jauh lawan ada di `spawnX + radius` = 0.64 —
+  lawan terpotong. Cacat ini sudah ada sejak build landscape.
+
+### Invariant Ink yang dipertahankan
+
+`camera.drawHalfWidth` dan `ink.costPerUnitLength` **tidak berubah**, karena
+invariant yang mengatur ekonomi Ink adalah:
+
+```
+2 · camera.drawHalfWidth · ink.costPerUnitLength = 75.5 Ink per sapuan selebar canvas
+```
+
+`fullHalfWidth` tidak masuk persamaan ini — tidak ada yang menggambar pada
+kamera Full. Karena itu me-reframe kamera Full untuk portrait adalah presentasi
+murni. Terverifikasi: fraksi lebar layar yang membeli Ink 40 tetap **0.530**,
+dan crossover offence/defence tetap jatuh **persis di Ink 40**
+(`predictLaunch`: reach 1.10 = jarak antar-wizard 1.10).
+
+### Yang berubah dan diterima
+
+Bentuk yang diukur terhadap **tinggi** layar menjadi lebih mahal: sapuan
+setinggi canvas naik dari 42.5 ke 113.2 Ink. Bentuk yang diukur terhadap
+**lebar** layar — termasuk semua lingkaran dan spiral yang diskalakan terhadap
+lebar — berbiaya identik dengan sebelumnya. Anisotropi total justru turun dari
+1.78× (landscape) menjadi 1.50× (portrait 2:3).
+
+---
+
 ## Ringkasan konstanta yang dikunci amandemen ini
 
 Nilai-nilai ini hidup di `shared/config` sebagai data, bukan magic number.
@@ -263,3 +384,9 @@ Nilai-nilai ini hidup di `shared/config` sebagai data, bukan magic number.
 | `aim.frame` | `"arena-overlay"` | A-04 |
 | `spawn.maxCastRadius` | data-driven, di-clamp | A-05 |
 | `reconnect.windowMs` | `30000` | A-06 |
+| `phases.castMs` | `2000` (tetap) | A-08 |
+| `movement` model | held-direction + 1 lompat | A-08 |
+| `camera.arenaAspectRatio` | `2/3`, semua device | A-09 |
+| `camera.fullHalfWidth` | `1.15` | A-09 |
+| `camera.drawCenterBias` | `0.36` | A-09 |
+| `camera.drawHalfWidth` × `ink.costPerUnitLength` | `0.85 × 44.4` → 75.5 Ink/sapuan | A-09 |

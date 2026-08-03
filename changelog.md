@@ -6,6 +6,501 @@ yang belum dikerjakan.
 
 ---
 
+## 2026-08-03 — Sesi 23: playable — M-01, M-02, M-03, M-06, T-01, T-03, T-04
+
+**Pelaksana:** Claude, takeover penuh atas permintaan BK: bangun sampai playable
+dan benar secara logic, rapikan tampilan, testplay, lalu commit.
+
+### M-02 — angin berhenti memutuskan Round sebelum ada yang menggambar
+
+Ini blocker terbesar dan perbaikannya mengubah desain, bukan hanya angka.
+
+Angin dulu adalah dorongan horizontal global, jadi angin ke kanan membantu
+siapa pun yang melempar ke kanan. Permainan cermin menghasilkan KO sepihak 0.0
+vs 41.3 Wobble — tidak ada keterampilan yang menjawab "anginnya lagi tidak
+berpihak padamu".
+
+Sekarang angin adalah **medan radial**: meniup keluar dari pusat arena, atau
+menarik ke dalam, dengan ramp `clamp(x / centreSpanX, -1, 1)` sepanjang 0.35
+unit. Fungsi itu **ganjil** terhadap x, jadi mencerminkan dunia membalik
+gayanya secara eksak — dan itulah yang membuat permainan cermin menghasilkan
+hasil cermin. Satu medan koheren di satu dunia bersama; tidak ada fisika
+per-pemain, tidak ada yang bisa desync. Pulau menarik napas masuk atau keluar.
+
+Diverifikasi lewat properti yang lebih kuat daripada "permainan cermin" buatan
+tangan: **mirror equivariance** — cerminkan seluruh dunia, tukar kursi, dan
+setiap hasil harus ikut tercermin dan tertukar. Skenario ujinya sengaja timpang
+(stroke berbeda, aim berbeda, kristal asimetris) supaya tidak lulus secara
+trivial.
+
+| | Sebelum | Sesudah |
+|---|---|---|
+| Wobble sepihak, permainan cermin | 41.3 | **0.000000** |
+| Angin masih terasa? | — | spread 17.6 Wobble antar setting |
+
+Terkunci di `shared/src/sim/windFairness.test.ts`. Probe:
+`.audit/probe-wind-fairness.mjs`.
+
+### M-01 — Turn cap
+
+`scoring.turnCapPerRound: 20`. Round berakhir setelah 20 Turn walau tanpa KO,
+Star ke pemain dengan Wobble lebih rendah; seri persis tidak memberi Star dan
+langsung Round baru (yang me-reseed angin dan kristal).
+
+20, bukan yang lebih ketat: pengukuran Sesi 22 menunjukkan permainan bervariasi
+selesai di ~12 Turn. Cap ini dirancang tidak pernah terasa oleh orang yang
+benar-benar berusaha mengenai lawannya, dan hanya menangkap kasus saling
+menghindar yang memang tidak punya jalan keluar lain.
+
+### M-03 — submit grace + ack
+
+`strokeLimits.submitGraceMs` akhirnya dibaca: stroke yang dilepas di frame
+terakhir Draw tidak lagi kalah oleh latensinya sendiri. Grace dibatasi oleh
+fase berikutnya, jadi tidak mungkin nyasar ke Turn lain.
+
+Dan client berhenti berbohong. `AckMessage` baru; "Rune locked" sekarang hanya
+muncul setelah server mengakui. Ditolak karena telat → "Too late — that rune
+missed the Draw window", bukan diam-diam hilang sampai Reveal.
+
+### M-06 — Wobble decay, dengan konstanta yang diperbaiki
+
+`decayPerSecond: 1.5` tidak pernah dibaca, dan memang tidak bisa: satu Turn ~21
+detik, jadi decay per-detik akan membuang 31.5 Wobble antar-Turn sementara
+pukulan solid hanya menambah ~24. Setiap pukulan terhapus sebelum yang
+berikutnya mendarat, dan KO — satu-satunya kondisi kalah — jadi tak terjangkau.
+
+Diganti `decayPerTurn: 4`, sekitar seperenam pukulan solid.
+
+### T-01 — rasio arena akhirnya terkunci
+
+`canvas { aspect-ratio: var(--arena-aspect) }` di semua breakpoint, nilainya
+di-inject dari `CONFIG.camera.arenaAspectRatio` di `main.ts` sehingga tidak ada
+angka gameplay yang ditulis di stylesheet. Semua aturan yang bertabrakan
+dicabut (`16/9`, `aspect-ratio: auto`, `height: 100dvh`, `height: 100%`);
+`.arena-wrap` sekarang `display: grid; place-items: center` sehingga sisa ruang
+jadi letterbox, bukan peregangan.
+
+Disparitas Ink vertikal HP-vs-desktop: **3.85× → 1.00×**.
+
+Ditambah guard test `client/src/ui/arenaRatio.test.ts`. Jujur soal batasnya: ia
+membaca stylesheet sebagai teks, bukan mengukur kotak yang dirender. Ia ada
+karena T-01 sudah pernah terjadi sekali — amandemen ditulis, konstanta
+ditambahkan, dan stylesheet tetap mengirim `16/9`. Grep-level guard akan
+menangkap persis itu.
+
+### T-03 / T-04
+
+Pip Wobble sekarang terisi kontinu lewat `--fill` per pip (Wobble 34 dan 66
+tidak lagi tampil identik), bentuk tiga pip dipertahankan untuk PRD §12. Ambang
+label angin diturunkan dari `CONFIG.wind.accelerationLevels`, bukan literal
+`0.22`/`0.35`. Copy angin ikut berubah semantiknya: "pushing out" / "drawing
+in", bukan "wind right" — mekanik kiri/kanan itu sudah tidak ada.
+
+### Testplay
+
+`server/src/testplay.test.ts` — satu match penuh lewat `Room` asli, protokol
+asli, jam palsu. Bukan unit test: dua pemain bergabung, bergerak saat Setup,
+menggambar tiap Turn, membidik, dan server yang menyelesaikan.
+
+```
+MATCH: 12 turns, 3 rounds, 233s, stars 3-0, winner slot 0
+  round 1 decided on turn 0 — KO slot 1 · stars 1-0
+  round 2 decided on turn 0 — KO slot 1 & 0 · stars 2-0
+  round 3 decided on turn 4 — KO slot 1 · stars 3-0
+```
+
+233 detik ≈ 3.9 menit — tepat di target PRD §5 (3–5 menit). Semua input
+di-ack, tidak ada yang ditolak, dan match deterministik dari seed yang sama.
+Ditambah cek keseimbangan lintas 8 seed: slot 0 tidak selalu menang.
+
+Alasan test ini ada: **setiap cacat di AUDIT-MECHANICS-S19 lolos suite unit.**
+M-01 dan M-02 hanya terlihat kalau satu match dimainkan sampai selesai.
+
+### Verifikasi
+
+238 test lulus (184 shared+server, 54 client). `tsc --build --force` bersih.
+`npm run build` bersih — keduanya dijalankan di salinan sandbox karena mount
+Windows menolak `unlink`/symlink; sumbernya identik (rsync dua arah).
+
+### Yang tidak bisa kukerjakan, dan sebaiknya kamu tahu
+
+**Screenshot browser tidak ada.** Chromium headless butuh `libXdamage.so.1`
+dan sandbox ini tanpa root. Jadi tidak ada satu pun bukti visual di sesi ini —
+rasio 2:3 terverifikasi lewat CSS dan konstanta, bukan lewat piksel. Yang perlu
+dilihat mata manusia: keterbacaan HUD saat benar-benar dipakai, dotted Aim
+guide, dan framing wizard selama kamera easing.
+
+**Animasi jalan belum ada.** Wizard berpindah saat Setup tapi masih memakai
+frame idle. Butuh sheet `walk` — keputusan aset.
+
+**M-05 hosting masih menggantung.** `maxDuration: 300` di `vercel.json` masih
+lebih pendek daripada match 233 detik ditambah lobby, dan room state masih di
+memory satu instance.
+
+---
+
+## 2026-08-03 — Sesi 22: M-04 movement held-direction
+
+**Pelaksana:** Claude. Keputusan BK: kerjakan M-04 sambil menunggu ekstensi
+Chrome untuk playtest. Model input held-direction sesuai A-08.
+
+### Yang dibangun
+
+**`shared/src/sim/setup.ts` — integrator gerak Setup.** Sengaja terpisah dari
+`stepWorld`: tidak ada partikel, bond, atau obstacle selama Setup, dan
+menyatukannya berarti dua fase berbagi tuning yang hanya dibutuhkan salah satu.
+Isinya minimal — gravitasi, satu impuls lompat, kontak tanah, batas pulau.
+
+**Protokol `MoveMessage` + `SetupFrameMessage`.** Client mengirim *intent*
+(arah −1/0/1 dan jump), server yang mengintegrasikan dan menyiarkan posisi
+authoritative. Client tidak pernah memprediksi posisinya sendiri, jadi tidak ada
+yang perlu direkonsiliasi. Biaya latency-nya jujur dan terbatas: koneksi lambat
+kehilangan satu round trip di saat tekan/lepas, bukan sebagian dari kecepatan
+(~6.7% dari Setup 3000 ms pada RTT 200 ms). Arah divalidasi sebagai enum, bukan
+angka — menerima float bebas berarti client bisa berjalan secepat yang ia mau.
+
+**`client/src/input/moveControls.ts` + `.css`** mengisi `#setup-controls-slot`
+yang Codex sediakan inert. Tiga target ≥44×44 px, plus keyboard desktop.
+Emit-on-change, dengan `releaseAll()` di blur, visibilitychange, pointercancel,
+dan lostpointercapture — empat cara sebuah tekanan berakhir tanpa `up` yang
+bersih.
+
+CSS-nya diletakkan di file sendiri, **bukan** di `styles.css`, karena file itu
+milik Codex (§1) dan sedang ada perubahan yang belum di-commit. Memindahkannya
+ke `styles.css` nanti murni mekanis.
+
+### Dua cacat yang ditemukan oleh test, bukan oleh pembacaan
+
+**Clamp delta membuang gerakan.** Versi pertama membatasi delta ke 0.1 detik
+supaya tick yang menumpuk tidak membuat wizard teleport. Itu memang mencegah
+teleport — tapi diam-diam membuang sisanya: pemain menahan kanan selama 3 detik
+dan server hanya memindahkannya 0.055 unit. Diganti sub-stepping tetap 1/120
+detik, jadi room yang tick 30 Hz dan room yang bangun dari suspend dengan satu
+delta 3 detik sampai ke posisi yang **sama**. Ada test yang membandingkan
+keduanya.
+
+**Separation tidak sengaja menciptakan mekanik dorong.** Versi pertama membagi
+overlap rata ke dua badan. Karena satu Setup cukup panjang untuk menyeberangi
+arena (`maxSetupTravel()` = 1.65 unit terhadap jarak 1.10), pemain yang menahan
+satu arah bisa mendorong lawan yang diam sampai ke tepi pulau, setiap Turn,
+tanpa counterplay — mekanik yang tidak pernah ada di PRD. Diganti: tiap badan
+dikembalikan sebanding dengan seberapa jauh **ia sendiri** bergerak. Yang diam
+tidak tergeser sama sekali; yang saling berjalan mendekat dikembalikan sama
+besar, jadi mirror-fairness tetap utuh.
+
+### Pengukuran ulang M-01 dengan positioning aktif
+
+`.audit/probe-stall-m04.mjs`, 25 seed per sel, Turn cap 30. Policy `still`
+mereproduksi kondisi Sesi 19 (tanpa positioning).
+
+| Skenario | Policy | Stall | Rata-rata Turn |
+|---|---|---|---|
+| mid-Ink trade | still | 17/25 (68%) | 8.0 |
+| mid-Ink trade | retreat | **24/25 (96%)** | 11.0 |
+| mid-Ink trade | wander | **1/25 (4%)** | 11.6 |
+| dart vs wall | still | 2/25 | 11.8 |
+| dart vs wall | retreat | 9/25 | 11.9 |
+| dart vs wall | wander | 1/25 | 11.9 |
+
+**Hipotesis Sesi 19 benar sebagian, dan salah di bagian yang penting.** Gerak
+memang meruntuhkan stall pada permainan yang bervariasi: 68% → 4%. Tapi gerak
+juga menciptakan stall yang *lebih buruk* daripada tidak ada gerak sama sekali
+kalau kedua pemain mundur — 96%, karena tidak ada yang pernah terjangkau. Mundur
+adalah insting defensif yang paling wajar, jadi ini bukan policy sintetis.
+
+**Kesimpulan untuk M-01: Turn cap tetap wajib.** Tapi boleh longgar — permainan
+yang tidak saling menghindar selesai di ~12 Turn, jadi cap di sekitar 20 tidak
+akan pernah terasa oleh pemain yang bermain normal.
+
+Baris `both max wall` belum selesai dihitung saat sesi ditutup (tiap sel
+menjalankan 25 × 30 Resolve penuh); jalankan ulang probe untuk melengkapinya.
+
+### Verifikasi
+
+179 test lulus (shared, server, `client/src/input`). Suite client penuh lulus
+terpisah (43). `npm run typecheck` dan `npm run build` tetap tidak bisa
+dijalankan dari sandbox ini — jalankan di mesin asli sebelum commit.
+
+### Handback ke Codex
+
+`HANDBACK-CODEX-S22.md` ditulis di akhir sesi: T-01 (rasio 2:3, dengan daftar
+baris CSS yang bertabrakan), T-03 (pip Wobble fraksional), T-04 (ambang angin
+dari config), plus dua pekerjaan baru dari M-04 — animasi jalan saat Setup, dan
+keputusan apakah `moveControls.css` dilebur ke `styles.css`.
+
+Keputusan BK: Codex membereskan T-01 lebih dulu; playtest dijalankan sekali di
+atas layout yang rasionya sudah benar, bukan dua kali di atas dua layout.
+
+Ekstensi Claude in Chrome tetap tidak tersambung sepanjang sesi meski sudah
+terpasang dan side panel-nya login — kemungkinan besar karena jembatannya
+terikat saat aplikasi desktop start, sementara ekstensinya dipasang di tengah
+sesi.
+
+### Belum dikerjakan
+
+Wizard belum dianimasikan berjalan; `setupFrame` menggerakkan posisi, tapi
+pemilihan animasi walk/idle ada di renderer (milik Codex). Skew kemenangan pada
+policy `wander` (17/7 lalu 6/18, arah berbalik antar-skenario) konsisten dengan
+bias angin M-02, bukan bias slot — belum diverifikasi terpisah.
+
+---
+
+## 2026-08-03 — Sesi 21: pemeriksaan UI pasca-handoff Codex
+
+**Pelaksana:** Claude. BK menyerahkan playtest dua tab 430×932 di room UG8M.
+Laporan lengkap: `PLAYTEST-REPORT-S21.md`.
+
+### Yang tidak jadi dikerjakan
+
+**Playtest interaktif gagal dijalankan** — ekstensi Claude in Chrome tidak
+terhubung, jadi kedua tab tidak bisa digerakkan. Empat butir fokus BK (rasa
+Draw, dotted Aim guide, keterbacaan HUD/Ink saat dipakai, framing wizard selama
+kamera easing) **belum diperiksa**. Sesi ini menjadi pemeriksaan statis dan
+numerik terhadap kontrak.
+
+### Temuan
+
+| ID | Severity | Temuan |
+|---|---|---|
+| T-01 | Blocker | A-09 tidak diimplementasikan. `camera.arenaAspectRatio` tidak dirujuk di client; `styles.css:368` masih `16/9` dan `:817` `aspect-ratio: auto` + `height: 100%`. Disparitas Ink vertikal HP-vs-desktop **3.85×** — lebih buruk dari 2.89× sebelum kalibrasi, karena `min-height`/`max-height` yang dulu membatasi sudah dicabut. |
+| T-02 | Serius (diperbaiki) | Laporan Codex soal wizard kanan terpotong **benar**, dan verifikasi A-09-ku salah. |
+| T-03 | Sedang | Pip Wobble masih diskret 3 langkah (`data-level` + `:nth-child`). `--wobble` disetel di `matchGame.ts:494` tapi tidak pernah dipakai CSS — kode mati. Wobble 34 dan 66 tampil identik. |
+| T-04 | Sedang | Ambang label angin (`0.22`, `0.35`) di-hardcode di `matchPresentation.ts:23`, bukan diturunkan dari `CONFIG.wind.accelerationLevels`. Melanggar §3.5; akan salah diam-diam saat M-02 mengubah level angin. |
+
+### Koreksi atas pekerjaanku sendiri (T-02)
+
+A-09 memverifikasi visibilitas lawan dengan `player.radius` — badan fisika.
+Renderer menggambar dua hal yang lebih lebar. Diukur di
+`.audit/probe-framing2.mjs`, memakai bounding box alpha sprite yang diukur
+langsung dengan PIL (bukan ukuran quad 176px, yang sebagian besar transparan dan
+melebih-lebihkan potongan ~3×):
+
+| Elemen | Batas kanan | Pada bias 0.36 |
+|---|---|---|
+| Badan fisika | 0.640 | muat |
+| Sprite piksel opak | 0.658 | muat, sisa 0.002 |
+| Cincin Wobble | 0.677 | **terpotong 0.017** |
+
+Cincin Wobble adalah satu-satunya readout kondisi kalah di dunia. Headroom juga
+**negatif**, sementara posisi terbawa antar-Turn, jadi lawan yang terdorong ke
+kanan hilang dari frame.
+
+### Perubahan
+
+`shared/src/config/index.ts`: `camera.drawCenterBias` **0.36 → 0.45**. Headroom
+menjadi +0.073 unit; wizard lokal tetap muat. Melebarkan `drawHalfWidth` juga
+bisa, tapi memaksa `costPerUnitLength` bergerak (0.90 → 41.9) dan mengubah
+ekonomi Ink — bias tidak.
+
+Baru: `.audit/probe-framing2.mjs`, `PLAYTEST-REPORT-S21.md`.
+
+Tidak menyentuh `client/src/styles.css` dan file milik Codex lainnya (§1);
+T-01, T-03, T-04 dikembalikan ke Codex dengan CSS dan lokasi yang konkret.
+
+### Verifikasi
+
+198 test lulus setelah perubahan bias. `npm run typecheck` dan `npm run build`
+tetap tidak bisa dijalankan dari sandbox ini (symlink `@cozy/*` `EIO`, `vite
+build` `EPERM`); BK melaporkan build berhasil di mesin asli.
+
+### Belum dikerjakan
+
+M-01 sampai M-08 belum disentuh. Sesuai §6, penilaian "seru"/"adil" belum sah
+sampai M-01 dan M-02 selesai — yang boleh dinilai sekarang hanya presentasi.
+
+---
+
+## 2026-08-03 — Sesi 20: kunci rasio arena & kalibrasi kamera–Ink portrait
+
+**Pelaksana:** Claude (orchestrator). BK menegaskan arah redesign menyeluruh
+dengan Codex sebagai pelaksana visual/UI dan Claude sebagai pemoles logic.
+Sesi ini mengerjakan blocker §2 `PLAN-S19-MOCKUP-PARITY.md` supaya Codex bisa
+mengunci ukuran canvas tanpa membangun di atas ekonomi Ink yang salah.
+
+### Cacat yang ditemukan
+
+Codex sudah mengirim layout portrait sebelum kalibrasi §2 selesai (perubahan
+belum di-commit di `client/index.html`, `client/src/styles.css`,
+`client/src/ui/matchGame.ts`). Implementasinya membiarkan tinggi canvas
+mengambil sisa layar: `calc(100dvh - 9.75rem)` di HP, `aspect-ratio: 16/9` di
+desktop.
+
+`createViewport` menurunkan `scale` dari lebar canvas saja, jadi rasio canvas
+menentukan berapa banyak arena yang terlihat vertikal — dan karena Ink ditagih
+per satuan panjang busur di ruang arena (A-04), rasio canvas juga menentukan
+harga gestur vertikal. Diukur lewat probe baru `.audit/probe-framing.mjs`:
+
+| Device | Sapuan setinggi layar |
+|---|---|
+| Desktop 16:9 | 42.5 Ink |
+| iPhone 14 Pro portrait | 122.9 Ink (**2.89×**) |
+| 390×844 portrait | 123.9 Ink (**2.92×**) |
+
+Dua pemain pada HP dan desktop membayar harga berbeda untuk rune berbentuk sama
+dan melihat jumlah arena berbeda untuk membidik. Ini bertentangan dengan A-03
+dan PRD §15.
+
+Cacat kedua, tidak terkait portrait dan **sudah ada sejak build landscape**:
+tepi kanan frame Draw berhenti di x = 0.60 sementara sisi jauh lawan ada di
+`spawnX + radius` = 0.64. Lawan terpotong 0.04 unit, padahal komentar di
+`viewport.ts` menyatakan framing Draw sengaja dibias supaya lawan tetap
+terlihat.
+
+### Koreksi atas rencanaku sendiri di §2
+
+Rencana §2 menyuruh menurunkan ulang `ink.costPerUnitLength` dari
+`drawHalfWidth` baru memakai rumus `26 × fullHalfWidth / drawHalfWidth`. Rumus
+itu keliru — ia menyeret `fullHalfWidth` ke dalam persamaan ekonomi Ink,
+padahal tidak ada yang menggambar pada kamera Full.
+
+Invariant yang benar: `2 · drawHalfWidth · costPerUnitLength = 75.5 Ink` untuk
+sapuan selebar canvas. Konsekuensinya `drawHalfWidth` dan `costPerUnitLength`
+**tidak perlu diubah sama sekali**, dan me-reframe kamera Full untuk portrait
+adalah presentasi murni. Komentar di config sudah ditulis ulang menyatakan
+invariant ini langsung, bukan sebagai turunan dari kamera yang tidak dipakai.
+
+### Perubahan
+
+`shared/src/config/types.ts` dan `shared/src/config/index.ts`:
+
+| Konstanta | Lama | Baru |
+|---|---|---|
+| `camera.arenaAspectRatio` | (tidak ada) | `2/3`, berlaku untuk semua device |
+| `camera.fullHalfWidth` | 1.45 | 1.15 |
+| `camera.drawCenterBias` | 0.30 | 0.36 |
+| `camera.drawHalfWidth` | 0.85 | 0.85 (tetap) |
+| `ink.costPerUnitLength` | 44.4 | 44.4 (tetap) |
+
+Rasio 2:3 dipilih setelah mengukur lima kandidat. 3:4 ditolak karena kill floor
+−1.4 jatuh persis di tepi frame — knock-out akan resolve di luar layar. 9:16 dan
+9:19.5 menambah langit kosong tanpa gameplay dan menyusutkan kolom desktop.
+
+Baru: `PRD-AMENDMENTS.md` A-08 (platform MVP bergeser ke portrait mobile-first,
+held-direction movement, `castMs` tetap 2000) dan A-09 (rasio arena terkunci
+sebagai constraint keadilan). Keduanya menimpa PRD §3 dan §19.
+
+`PLAN-S19-MOCKUP-PARITY.md` §2 ditandai selesai; §5 diperbarui dengan tiga
+keputusan BK yang sudah terkunci plus instruksi CSS konkret untuk Codex; §6
+definition of done ditambah empat kriteria baru.
+
+### Keputusan BK sesi ini
+
+- **Rasio arena dikunci lintas device**, letterbox di sisanya. Biayanya:
+  desktop 1280×720 mendapat kolom arena 480×720, tidak full-bleed seperti
+  mockup. Diterima sadar.
+- **Movement held-direction** (kiri/kanan + satu lompat), bukan
+  tap-to-position. Codex menyediakan container tiga tombol sentuh.
+- **`phases.castMs` tetap 2000.** `AIM 03.8` di mockup adalah art direction;
+  menaikkannya membawa Turn ke ~22.8 detik, melewati batas PRD §19.
+
+### Verifikasi
+
+198 test lulus (139 shared, 59 client+server) setelah perubahan konstanta;
+`fairness.test.ts` dan `classifier.test.ts` tidak regresi. Crossover
+offence/defence terverifikasi lewat `predictLaunch()` tetap persis di Ink 40
+(reach 1.10 = jarak antar-wizard 1.10), dan fraksi lebar layar yang membeli
+Ink 40 tetap 0.530 — identik dengan build landscape.
+
+`npm run typecheck` dan `npm run build` **tidak bisa diverifikasi di lingkungan
+ini**: symlink workspace `node_modules/@cozy/*` tidak terbaca lewat mount
+(`EIO`), sehingga semua import `@cozy/shared` gagal resolve, dan `vite build`
+berhenti di `EPERM: unlink client/dist/...`. Keduanya artefak lingkungan, bukan
+kode. **Codex atau BK perlu menjalankan keduanya di mesin asli sebelum
+commit.**
+
+### Belum dikerjakan
+
+M-01 sampai M-08 belum disentuh. Keputusan hosting (M-05) masih menggantung dan
+merupakan satu-satunya butir §5 yang belum dijawab; ia tidak memblokir Codex.
+Anisotropi Ink horizontal-vs-vertikal (1.50× di portrait 2:3, turun dari 1.78×
+di landscape) dicatat sebagai konsekuensi yang diterima, belum diuji terhadap
+pemain.
+
+---
+
+## 2026-08-03 — Sesi 19: audit cacat mekanik & logic pasca-deploy
+
+**Pelaksana:** Claude (orchestrator). BK meminta pemeriksaan cacat mekanik dan
+logic setelah build pertama dideploy ke Vercel. Tidak ada kode gameplay yang
+diubah dalam sesi ini — sesi ini murni pengukuran.
+
+### Cara audit dilakukan
+
+Suite yang ada (195 test) lulus dan tetap lulus, jadi pembacaan kode saja tidak
+cukup untuk membedakan "benar" dari "tidak pernah diuji". Tiga skrip probe
+ditambahkan di `.audit/` yang menjalankan `runResolve` + state machine secara
+headless untuk puluhan seed, dan mengukur: panjang match, tingkat stalemate,
+simetri hasil antar-slot, dan pengaruh angin pada permainan yang identik.
+
+### Temuan
+
+Laporan lengkap dengan bukti angka dan `file:line`: `AUDIT-MECHANICS-S19.md`.
+
+| ID | Severity | Cacat |
+|---|---|---|
+| M-01 | Blocker | Match bisa tidak pernah selesai. 26/60 seed masuk siklus state deterministik pada permainan mid-Ink yang wajar; 15/20 pada permainan bertahan penuh. Round hanya berakhir lewat KO, environment di-seed per Round, dan Wobble ter-cap — jadi Turn yang berulang akan berulang selamanya. |
+| M-02 | Blocker | Angin memutuskan Round sebelum ada yang menggambar. Dengan permainan cermin sempurna, angin 0.28 dan 0.42 (2 dari 4 level) menghasilkan KO sepihak: 0.0 vs 41.3 Wobble. Kontrol tanpa angin mirror eksak, jadi simulatornya sendiri tidak bias. |
+| M-03 | Serius | `strokeLimits.submitGraceMs` tidak pernah dibaca. Stroke/Cast yang tiba setelah batas fase dibuang diam-diam, sementara client menampilkan "Rune locked". Latency menentukan hasil Turn — bertentangan langsung dengan A-03 dan PRD §15. |
+| M-04 | Serius | Movement tidak diimplementasikan sama sekali: tidak ada pesan protokol, `canMove()` dan `movement.speed/jumpImpulse` mati. Setup 3 detik kosong. A-03 membayar penguncian movement di Resolve dengan janji positioning di Setup yang belum ada. |
+| M-05 | Serius | `vercel.json maxDuration: 300` lebih pendek dari target durasi match; jam fase adalah `setInterval` di function yang boleh disuspend; Resolve dihitung sinkron dalam satu tick. Ditambah room state per-instance yang sudah dicatat Sesi 18. |
+| M-06 | Sedang | `wobble.decayPerSecond: 1.5` mati. Diukur: Wobble 50 keluar 50.00 setelah satu Resolve. Mekanisme comeback yang didokumentasikan tidak ada. |
+| M-07 | Sedang | Lawan disconnect saat Draw mengunci pemain yang masih online (gate client butuh 2 connected), tapi server hanya menjeda di Setup. Satu Turn hangus untuk keduanya. |
+| M-08 | Rendah | `MatchState.players[].wobble/.ink` tidak pernah diperbarui (kebenaran ada di `Room.wobble`); seluruh blok `CONFIG.combat` mati; `aim.maxCastRadius` mati sejak pivot rune-body tanpa amandemen A-05; cabang sudden-death di `findWinner` tidak terjangkau. |
+
+### Yang diverifikasi benar
+
+Simulator tidak bias slot (mirror test tanpa angin: `-0.7954 / +0.7954`, Wobble
+identik 3 desimal). A-02 benar di semua jalur skor. `repairStroke` +
+`parseClientMessage` menutup cheat geometri. Kurva Ink → massa → jangkauan
+monoton dengan crossover di Ink 40 seperti didokumentasikan. Dart mengalahkan
+wall 13/20, jadi bertahan bukan strategi dominan melawan lawan yang menyerang.
+
+### Rekomendasi urutan kerja
+
+M-04 dulu (kembalikan lever pemain), lalu ukur ulang stall rate — M-01
+kemungkinan sebagian disebabkan oleh hilangnya positioning. Lalu M-02 dengan
+mirror-fairness sebagai invariant baru di `DESIGN-RUNE-BODY-COMBAT.md`, lalu
+M-01 Turn cap sebagai safety valve, lalu M-03.
+
+### Keputusan arah setelah audit
+
+BK menunjukkan mockup target (pixel-art portrait, HUD lengkap) dan menetapkan
+pembagian kerja: Codex mengerjakan presentasi sampai parity dengan mockup,
+Claude memoles logic setelahnya. Tiga keputusan diambil:
+
+- **Portrait mobile-first.** Bertentangan dengan PRD §3 yang mengunci MVP ke
+  desktop + mouse; perlu amandemen. Konsekuensi mekanik: `ink.costPerUnitLength`
+  dikalibrasi terhadap `camera.drawHalfWidth`, dan A-04 mengunci canvas gambar
+  sebagai jendela 1:1 ke arena — rasio layar baru menggeser ekonomi Ink dan
+  crossover offence/defence di Ink 40 kalau tidak dikalibrasi ulang bersama.
+- **Trajectory preview jalur parsial** (memudar setelah ~40%), bukan panah arah
+  saja (PRD §14) dan bukan jalur penuh. PRD §14 perlu diamandemen. Syarat:
+  preview dihitung dari integrator yang sama dengan Resolve dan melengkung
+  mengikuti angin — preview lurus di dunia berangin lebih buruk daripada tidak
+  ada preview.
+- **Urutan perbaikan logic:** M-04 movement dulu, lalu ukur ulang stall rate
+  M-01, baru M-02, M-01, M-03.
+
+Rencana kerja dan pembagian kepemilikan file: `PLAN-S19-MOCKUP-PARITY.md`.
+
+Catatan tambahan dari pembacaan mockup: mockup menghilangkan gauge angin
+(`matchGame.ts:372`) dan cincin Wobble (`matchScene.ts:515`). Keduanya
+menopang mekanik — angin adalah variabel paling menentukan di Round (M-02),
+Wobble adalah satu-satunya penggerak kondisi kalah — jadi keduanya wajib punya
+tempat di desain baru. Timer mockup `AIM 03.8` juga tidak cocok dengan
+`phases.castMs: 2000`; kalau 3.8 detik yang diinginkan itu perubahan config,
+bukan renderer, dan menambah ~1.8 detik ke Turn yang sudah 21 detik terhadap
+batas PRD 22 detik.
+
+### Belum dikerjakan
+
+Tidak ada perbaikan yang diterapkan. Renderer, input, dan pipeline aset tidak
+diaudit di sesi ini kecuali di titik yang menyentuh mekanik (`canDraw`,
+`canCast`, submit path). Kalibrasi kamera–Ink portrait belum dikerjakan dan
+**memblokir** Codex mengunci ukuran canvas arena.
+
+---
+
 ## 2026-08-03 — Sesi 18: publish GitHub dan deploy multiplayer ke Vercel
 
 **Pelaksana:** Codex. BK meminta seluruh repo dipublish ke

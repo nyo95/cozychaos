@@ -167,6 +167,50 @@ function findWinner(
 }
 
 /**
+ * M-01 — the Turn cap.
+ *
+ * A Round ends only on knock-out, the environment is seeded per Round, and
+ * Wobble is capped, so a Turn that repeats repeats forever. Measured with two
+ * retreating players: 24 of 25 seeds never terminated
+ * (`.audit/probe-stall-m04.mjs`).
+ *
+ * When the cap is reached the Star goes to whoever is steadier — the player
+ * with less Wobble has been winning the exchange, so this is the least
+ * arbitrary reading of an unfinished Round. An exact tie awards nothing and
+ * simply starts the next Round, which reseeds wind and crystals; repeating the
+ * identical stalemate twice would require the players to also repeat
+ * themselves against different weather.
+ *
+ * Returns `null` when the cap has not been reached, so the caller can tell
+ * "nothing happened" from "the Round was decided".
+ */
+export function applyTurnCap(
+  state: MatchState,
+  wobble: readonly [number, number],
+): MatchState | null {
+  if (state.winner !== null) return null;
+  if (state.turn + 1 < CONFIG.scoring.turnCapPerRound) return null;
+
+  const steadier: PlayerSlot | null =
+    wobble[0] === wobble[1] ? null : wobble[0] < wobble[1] ? 0 : 1;
+
+  if (steadier === null) return startNextRound(state);
+
+  const players = state.players.map((player) =>
+    player.slot === steadier ? { ...player, stars: player.stars + 1 } : player,
+  ) as unknown as readonly [PlayerState, PlayerState];
+
+  const winner = findWinner(players, state.suddenDeath);
+  if (winner !== null) return { ...state, players, winner };
+  return startNextRound({ ...state, players });
+}
+
+/** True when the next Turn would cross the cap — for HUD warnings. */
+export function turnsLeftInRound(state: MatchState): number {
+  return Math.max(0, CONFIG.scoring.turnCapPerRound - state.turn - 1);
+}
+
+/**
  * Starts a new Round: Wobble clears (A-01) and both wizards return to their
  * starting positions (PRD §5.1). The Turn counter restarts because Turns are
  * numbered within a Round.
@@ -205,6 +249,17 @@ export function startNextTurn(state: MatchState): MatchState {
       hasSubmitted: false,
     })) as unknown as readonly [PlayerState, PlayerState],
   };
+}
+
+/**
+ * M-06 — Wobble bled off at the start of each new Turn.
+ *
+ * Applied by the room to the values it carries forward, not stored in
+ * `MatchState.players[].wobble`, because M-08 found that field is never the
+ * source of truth: `Room.wobble` is.
+ */
+export function decayWobble(wobble: number): number {
+  return Math.max(0, wobble - CONFIG.wobble.decayPerTurn);
 }
 
 /** Knockback multiplier for a player's current Wobble. PRD §5.3. */

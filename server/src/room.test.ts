@@ -343,3 +343,104 @@ describe('room manager', () => {
     expect(manager.get('HOLD')).toBeUndefined();
   });
 });
+
+/**
+ * M-04 — Setup movement. A-03 locks movement out of Resolve and pays for that
+ * with positioning during Setup; these are the tests that make the payment
+ * real rather than documented.
+ */
+describe('setup movement (M-04)', () => {
+  function seated(code: string, seed = 4): { room: Room; a: Collector; b: Collector } {
+    const room = new Room(code, seed);
+    const a = new Collector();
+    const b = new Collector();
+    room.join('Ana', a.send);
+    room.join('Bo', b.send);
+    return { room, a, b };
+  }
+
+  /** Runs the Setup phase in 30 Hz ticks, holding the given intents throughout. */
+  function runSetup(room: Room, hold: (t: number) => void, ms = CONFIG.phases.setupMs): void {
+    for (let t = 0; t <= ms; t += 33) {
+      hold(t);
+      room.tick(t);
+    }
+  }
+
+  it('broadcasts authoritative positions while a player holds a direction', () => {
+    const { room, a } = seated('MOVE');
+    runSetup(room, () => room.submitMove(0, 1, false));
+    const frames = a.ofType('setupFrame');
+    expect(frames.length).toBeGreaterThan(0);
+    const last = frames.at(-1)!;
+    expect(last.positions[0].x).toBeGreaterThan(-CONFIG.player.spawnX);
+    // The idle player must not be shoved along by the walker.
+    expect(last.positions[1].x).toBeCloseTo(CONFIG.player.spawnX, 6);
+  });
+
+  it('ignores movement outside Setup (A-03)', () => {
+    const { room, a } = seated('LOCK');
+    // Run past Setup into Draw, then try to walk.
+    for (let t = 0; t <= CONFIG.phases.setupMs + 500; t += 33) room.tick(t);
+    expect(a.ofType('room').at(-1)?.room.phase).toBe('draw');
+
+    const before = a.ofType('setupFrame').at(-1)?.positions[0].x;
+    room.submitMove(0, 1, false);
+    for (let t = CONFIG.phases.setupMs + 500; t <= CONFIG.phases.setupMs + 900; t += 33) room.tick(t);
+    expect(a.ofType('setupFrame').at(-1)?.positions[0].x).toBe(before);
+  });
+
+  it('spends the Setup budget exactly once, however the ticks are bunched', () => {
+    // M-05: a suspended function can deliver a huge delta. Two rooms, same
+    // intent, different tick granularity — the outcome must match.
+    const fine = seated('FINE').room;
+    const coarse = seated('CRSE').room;
+    runSetup(fine, () => fine.submitMove(0, 1, false), CONFIG.phases.setupMs);
+    for (const t of [0, CONFIG.phases.setupMs * 4]) {
+      coarse.submitMove(0, 1, false);
+      coarse.tick(t);
+    }
+    // Both rooms leave Setup, which is what commits `positions`.
+    fine.tick(CONFIG.phases.setupMs + 100);
+    const fineX = (fine as unknown as { positions: Vec2[] }).positions[0]!.x;
+    const coarseX = (coarse as unknown as { positions: Vec2[] }).positions[0]!.x;
+    expect(coarseX).toBeCloseTo(fineX, 6);
+  });
+
+  it('carries the walked position into the rune spawn, not the spawn point', () => {
+    const { room, a } = seated('CARRY');
+    runSetup(room, () => room.submitMove(0, 1, false));
+    const walkedTo = a.ofType('setupFrame').at(-1)!.positions[0].x;
+    expect(walkedTo).toBeGreaterThan(-CONFIG.player.spawnX + 0.1);
+
+    drive(room, a, TURN_MS + 200, () => {
+      room.submitStroke(0, stroke({ x: -0.3, y: 0.35 }, { x: 0.1, y: 0.35 }));
+      room.submitStroke(1, stroke({ x: 0.3, y: 0.35 }, { x: -0.1, y: 0.35 }));
+    });
+    const reveal = a.ofType('reveal').at(-1);
+    expect(reveal).toBeTruthy();
+  });
+
+  it('resets the jump allowance every Setup', () => {
+    const { room, a } = seated('JUMP');
+    runSetup(room, (t) => room.submitMove(0, 0, t === 0));
+    expect(a.ofType('setupFrame').at(-1)!.jumpsLeft[0]).toBe(0);
+
+    drive(room, a, TURN_MS + 300, () => {
+      room.submitStroke(0, stroke({ x: -0.3, y: 0.35 }, { x: 0.1, y: 0.35 }));
+      room.submitStroke(1, stroke({ x: 0.3, y: 0.35 }, { x: -0.1, y: 0.35 }));
+    });
+    const later = a.ofType('setupFrame').at(-1)!;
+    expect(later.jumpsLeft[0]).toBe(CONFIG.movement.jumpsPerSetup);
+  });
+
+  it('is slot-symmetric: mirrored intents give mirrored positions', () => {
+    const { room, a } = seated('MIRR');
+    runSetup(room, () => {
+      room.submitMove(0, 1, false);
+      room.submitMove(1, -1, false);
+    });
+    const last = a.ofType('setupFrame').at(-1)!;
+    expect(last.positions[0].x).toBeCloseTo(-last.positions[1].x, 10);
+  });
+});

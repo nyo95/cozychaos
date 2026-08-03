@@ -4,6 +4,7 @@ import { knockbackMultiplier, type PlayerSlot } from '../match/state.js';
 import type { RuneBodyBlueprint } from '../spells/runeBody.js';
 import { distance, normalize, type Vec2 } from '../spells/geometry.js';
 import { bounceMovingCircleOffSpike } from './collision.js';
+import { windAccelerationX } from './environment.js';
 
 /** Authoritative wizard body. */
 export interface Body {
@@ -233,7 +234,8 @@ function integrateParticles(world: World): void {
     if (!particle.alive) continue;
     particle.previousX = particle.x;
     particle.previousY = particle.y;
-    particle.vx += world.wind.x * STEP_S;
+    // M-02: the field depends on where the particle is, not just on the Round.
+    particle.vx += windAccelerationX(world.wind, particle.x) * STEP_S;
     particle.vy += (gravity + world.wind.y) * STEP_S;
     particle.vx *= drag;
     particle.vy *= drag;

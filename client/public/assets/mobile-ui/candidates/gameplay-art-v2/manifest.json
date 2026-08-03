@@ -1,0 +1,78 @@
+{
+  "version": 2,
+  "status": "active-pilot-with-procedural-fallback",
+  "generatedWith": "OpenAI built-in ImageGen",
+  "postProcess": "chroma-key removal, alpha trim with 8px padding, deterministic cyan-to-pink hue derivative",
+  "runtimeAuthority": "presentation-only; pixels never define collision, Ink, rune geometry, or simulation state",
+  "assets": {
+    "floatingIsland": {
+      "path": "/assets/mobile-ui/candidates/gameplay-art-v2/floating-island-v2.png",
+      "width": 1711,
+      "height": 578,
+      "mode": "RGBA",
+      "sha256": "c0a349a21fb60e689dd898fc1aab4a1419ce3b2a912560504262c639c7aa034d",
+      "anchor": {
+        "type": "ground-center",
+        "x": 855.5,
+        "y": 72,
+        "normalized": [0.5, 0.124567]
+      },
+      "fit": "Map left/right image edges to +/- CONFIG.arena.halfWidth and align anchor y to world y=0. Preserve aspect ratio.",
+      "fallback": "existing procedural drawIsland"
+    },
+    "crystalObstacle": {
+      "path": "/assets/mobile-ui/candidates/gameplay-art-v2/crystal-obstacle-v2.png",
+      "width": 775,
+      "height": 1455,
+      "mode": "RGBA",
+      "sha256": "af2eb4743fe83a1ddfe3c7e0cffcf9be9eef0d1479e9dc3eb9d48622331ec2b9",
+      "sourceTriangle": {
+        "tip": [387.5, 8],
+        "baseLeft": [8, 1447],
+        "baseRight": [767, 1447]
+      },
+      "anchor": {
+        "type": "base-center",
+        "x": 387.5,
+        "y": 1447
+      },
+      "fit": "Clip to the exact authoritative HazardSpikeConfig triangle, fit to its base width and base-to-tip height, and vertically flip for ceiling spikes.",
+      "fallback": "existing procedural drawCrystals"
+    },
+    "runeNodeCyan": {
+      "path": "/assets/mobile-ui/candidates/gameplay-art-v2/rune-node-cyan-v2.png",
+      "width": 581,
+      "height": 615,
+      "mode": "RGBA",
+      "sha256": "ac54b7f113c0733b957a0a81daade957d5496fe4fe0cf7e678ef12f02eb7803f",
+      "anchor": {
+        "type": "center",
+        "x": 290.5,
+        "y": 307.5
+      },
+      "fit": "Stamp at state-derived rune nodes/particles only; recommended visible size 10-24 CSS px.",
+      "fallback": "existing procedural node circles"
+    },
+    "runeNodePink": {
+      "path": "/assets/mobile-ui/candidates/gameplay-art-v2/rune-node-pink-v2.png",
+      "width": 581,
+      "height": 615,
+      "mode": "RGBA",
+      "sha256": "8258ae635b225b05d1becfc23a22d17ca9915e8d3a0e18bc00a51c5db5935d76",
+      "derivedFrom": "runeNodeCyan via deterministic hue-only remap",
+      "anchor": {
+        "type": "center",
+        "x": 290.5,
+        "y": 307.5
+      },
+      "fit": "Stamp at state-derived rune nodes/particles only; recommended visible size 10-24 CSS px.",
+      "fallback": "existing procedural node circles"
+    }
+  },
+  "validation": {
+    "alpha": true,
+    "transparentCorners": true,
+    "resamplingDuringPreparation": "none",
+    "runtimeImageSmoothing": false
+  }
+}

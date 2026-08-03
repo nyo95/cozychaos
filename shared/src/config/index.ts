@@ -28,9 +28,20 @@ export const CONFIG: GameConfig = Object.freeze({
   // PRD §7.2 — ink caps spell size. A-01 fixes the reset scope to per-Turn.
   ink: Object.freeze({
     total: 100,
-    // 26 × (fullHalfWidth 1.45 / drawHalfWidth 0.85) = 44.4. The Draw camera is
-    // zoomed, so a given finger sweep now covers fewer arena units; without
-    // this rescale the same gesture would suddenly buy 1.7x more matter.
+    /**
+     * The calibration invariant, stated directly instead of as a derivation
+     * from a camera the player never draws at:
+     *
+     *   2 · camera.drawHalfWidth · costPerUnitLength = 75.5
+     *
+     * i.e. a stroke sweeping the full canvas width during Draw costs 75.5 Ink,
+     * and the Ink-40 offence/defence crossover sits at 53% of canvas width.
+     * Any change to `drawHalfWidth` must move this number to keep that pair
+     * fixed, or the same gesture silently buys different mass.
+     *
+     * `fullHalfWidth` and `arenaAspectRatio` do NOT enter this equation.
+     * Verified in `.audit/probe-framing.mjs`.
+     */
     costPerUnitLength: 44.4,
     costToStart: 4,
     warnFraction: 0.25,
@@ -52,8 +63,20 @@ export const CONFIG: GameConfig = Object.freeze({
     knockbackLift: 0.9,
     // At full Wobble a hit throws you 2.6x as far as it would at zero.
     knockbackMultiplierAtMax: 2.6,
-    // Slow bleed gives the losing player a route back. PRD §5.3 comeback goal.
-    decayPerSecond: 1.5,
+    /**
+     * M-06 — the comeback bleed, expressed per Turn instead of per second.
+     *
+     * The old `decayPerSecond: 1.5` was never read by any code, and could not
+     * have been: a Turn is ~21 seconds, so per-second decay would shed 31.5
+     * Wobble between Turns while a solid connect only adds ~24. Every hit would
+     * have been erased before the next one landed, and knock-out — the sole
+     * lose condition — would be unreachable.
+     *
+     * 4 per Turn is about one sixth of a solid connect: enough that a player
+     * who survives a few Turns without being hit feels the pressure ease,
+     * not enough to undo a landed exchange.
+     */
+    decayPerTurn: 4,
   }),
 
   scoring: Object.freeze({
@@ -61,6 +84,21 @@ export const CONFIG: GameConfig = Object.freeze({
     doubleKoWindowMs: 400,
     // A-02 — tightened so Sudden Death converges instead of looping forever.
     doubleKoWindowSuddenDeathMs: 150,
+    /**
+     * M-01 — safety valve. A Round ends after this many Turns even without a
+     * knock-out, and the Star goes to whoever is steadier.
+     *
+     * Rounds could previously run forever: they end only on knock-out, the
+     * environment is seeded per Round, and Wobble is capped — so a repeating
+     * Turn repeats indefinitely. Measured in `.audit/probe-stall-m04.mjs`: with
+     * both players retreating, 24 of 25 seeds never terminated.
+     *
+     * 20, not something tighter, because the same measurement shows normal
+     * varied play resolves in ~12 Turns. The cap is meant to be invisible to
+     * anyone actually trying to hit their opponent, and to catch only the
+     * mutual-avoidance case that has no other exit.
+     */
+    turnCapPerRound: 20,
   }),
 
   // A-03 — Setup only. Resolve is a pure simulation with no player input.
@@ -107,20 +145,107 @@ export const CONFIG: GameConfig = Object.freeze({
 
   // Shared because Draw zoom feeds back into Ink cost (see ink.costPerUnitLength).
   camera: Object.freeze({
+    /**
+     * A-09 — 2:3 portrait, identical on every device.
+     *
+     * Measured alternatives (`.audit/probe-framing.mjs`), all with the Ink
+     * economy held fixed:
+     *
+     *   3:4    kill floor -1.4 sits exactly on the frame edge — a knock-out
+     *          would resolve off-screen. Rejected.
+     *   2:3    frame y -1.52..1.92, island 87% of canvas width, desktop
+     *          letterbox 480x720. Chosen.
+     *   9:16   frame y -1.84..2.24 — 0.44 extra units of empty sky above and
+     *          below with no gameplay in them.
+     *   9:19.5 desktop letterbox collapses to 332x720.
+     *
+     * Locking this is what makes the arena fair across devices; see the
+     * `arenaAspectRatio` doc comment in types.ts.
+     */
+    arenaAspectRatio: 2 / 3,
+    /**
+     * Unchanged from the landscape build, and it must stay that way unless
+     * `ink.costPerUnitLength` moves with it.
+     *
+     * The Ink invariant is `2 · drawHalfWidth · costPerUnitLength` = 75.5 Ink
+     * for a sweep across the full canvas width. It does not involve
+     * `fullHalfWidth`, because nobody draws at the Full camera. Re-framing the
+     * Full camera for portrait is therefore pure presentation and does not
+     * touch the offence/defence dial.
+     */
     drawHalfWidth: 0.85,
-    fullHalfWidth: 1.45,
+    // 1.15, down from 1.45. At 1.45 the 2:3 frame spanned y -1.97..2.37 and the
+    // island shrank to 69% of canvas width on a phone. 1.15 is the narrowest
+    // framing that still holds the island (±1.0), the crystal ceiling (1.3),
+    // and the kill floor (-1.4) with margin.
+    fullHalfWidth: 1.15,
     drawCenterY: 0.34,
     fullCenterY: 0.2,
     // Pulls the Draw framing toward mid-arena so the rival stays partly in
     // frame; a player who cannot see the rival cannot aim meaningfully.
-    drawCenterBias: 0.3,
+    /**
+     * 0.45. Two corrections, in order.
+     *
+     * 0.30 → 0.36 (A-09): the Draw frame's right edge stopped at 0.60 while the
+     * rival's physics body reaches `spawnX + radius` = 0.64.
+     *
+     * 0.36 → 0.45: bounding the rival by the physics body was the wrong test.
+     * The renderer paints two things wider than the body — measured in
+     * `.audit/probe-framing2.mjs`:
+     *
+     *   physics body        → 0.640   fits
+     *   sprite opaque px    → 0.658   fits by 0.002
+     *   Wobble ring         → 0.677   clipped by 0.017
+     *
+     * The Wobble ring is the game's only lose-condition readout, so clipping it
+     * is not cosmetic. 0.36 also left *negative* headroom for drift, and
+     * positions carry across Turns — a rival pushed even slightly right left
+     * frame entirely. 0.45 buys 0.09 units of headroom.
+     *
+     * Widening `drawHalfWidth` would also work but costs Ink recalibration
+     * (0.90 would force costPerUnitLength to 41.9); bias is free.
+     */
+    drawCenterBias: 0.45,
     easePerSecond: 6.5,
   }),
 
-  // Selected deterministically per Round and shown before either player draws.
+  /**
+   * Selected deterministically per Round and shown before either player draws.
+   *
+   * M-02 — wind is a *radial* field, not a global shove.
+   *
+   * A single global `wind.x` decided Rounds before anyone drew: with perfectly
+   * mirrored play, levels 0.28 and 0.42 produced a one-sided knock-out at
+   * 0.0 vs 41.3 Wobble, because a rightward wind helps whoever casts rightward.
+   * There is no amount of skill that answers "the wind was against you today".
+   *
+   * The field now points outward from the arena centre (or inward, when the
+   * signed magnitude is negative), ramping across `centreSpanX`:
+   *
+   *   ax(x) = magnitude · clamp(x / centreSpanX, -1, +1)
+   *
+   * That is an *odd* function of x, so mirroring the world negates the force
+   * exactly — which is what makes mirrored play produce mirrored outcomes. It
+   * is also a single coherent field in one shared world: the island breathes
+   * in or out. No per-player physics, nothing to desync.
+   *
+   * Tactically it is still the most Gunbound thing on screen, just symmetric:
+   * an outward wind carries your rune away and shortens the rival's reach into
+   * your half; an inward wind does the reverse. Both players read the same
+   * gauge and both must answer it.
+   */
   wind: Object.freeze({
+    // Signed: negative pulls inward, positive pushes outward. Magnitudes are
+    // the same set the global field used, so reach tuning carries over.
     accelerationLevels: Object.freeze([0, 0.16, 0.28, 0.42]),
     verticalLiftFraction: 0.12,
+    /**
+     * Distance over which the field ramps from zero at the centre to full
+     * strength. 0.35, not a hard step at x = 0: a discontinuity would make a
+     * rune crossing the midline snap sideways, which reads as a physics bug
+     * rather than weather.
+     */
+    centreSpanX: 0.35,
   }),
 
   // Cave geometry is generated from this shared data once per Round. The
