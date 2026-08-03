@@ -1,29 +1,35 @@
 import { randomInt } from 'node:crypto';
-import type { ServerMessage } from '../../shared/src/index.js';
+import type { RoomMode, ServerMessage } from '../../shared/src/index.js';
 import { Room } from './room.js';
+import { ArenaRoom } from './arenaRoom.js';
+
+/** Either flavour of room. The `kind` discriminant lets callers narrow safely. */
+export type AnyRoom = Room | ArenaRoom;
 
 /**
  * Owns the set of live rooms and hands out room codes.
  *
  * Kept separate from both the socket layer and the match logic so it can be
- * driven in tests: create a room, join two fake seats, tick a clock.
+ * driven in tests: create a room, join two fake seats, tick a clock. A room's
+ * mode is decided when it is first created (classic drawing duel vs. real-time
+ * Rune Arena); joining an existing code joins whatever mode that room already is.
  */
 export class RoomManager {
-  private readonly rooms = new Map<string, Room>();
+  private readonly rooms = new Map<string, AnyRoom>();
   private seq = 0;
 
-  /** Finds an existing room, or creates one under the given code. */
-  getOrCreate(code: string | undefined): Room {
+  /** Finds an existing room, or creates one under the given code in the given mode. */
+  getOrCreate(code: string | undefined, mode: RoomMode = 'classic'): AnyRoom {
     const normalised = (code ?? '').trim().toUpperCase();
     if (normalised && this.rooms.has(normalised)) return this.rooms.get(normalised)!;
 
     const finalCode = normalised || this.freshCode();
-    const room = new Room(finalCode, this.nextSeed());
+    const room: AnyRoom = mode === 'arena' ? new ArenaRoom(finalCode) : new Room(finalCode, this.nextSeed());
     this.rooms.set(finalCode, room);
     return room;
   }
 
-  get(code: string): Room | undefined {
+  get(code: string): AnyRoom | undefined {
     return this.rooms.get(code.toUpperCase());
   }
 

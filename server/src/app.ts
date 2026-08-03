@@ -6,13 +6,12 @@ import {
   type ServerMessage,
 } from '../../shared/src/index.js';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { Room } from './room.js';
-import { RoomManager } from './rooms.js';
+import { RoomManager, type AnyRoom } from './rooms.js';
 
 const TICK_MS = 1000 / 30;
 
 interface Connection {
-  room: Room | null;
+  room: AnyRoom | null;
   slot: PlayerSlot | null;
 }
 
@@ -61,7 +60,9 @@ export function createCozyChaosServer(): CozyChaosServer {
           return;
         }
         const requestedCode = message.code?.trim();
-        const room = requestedCode ? manager.get(requestedCode) : manager.getOrCreate(undefined);
+        const room = requestedCode
+          ? manager.get(requestedCode)
+          : manager.getOrCreate(undefined, message.mode ?? 'classic');
         if (!room) {
           send({ type: 'error', reason: 'room not found' });
           return;
@@ -81,21 +82,31 @@ export function createCozyChaosServer(): CozyChaosServer {
         return;
       }
 
+      const room = connection.room;
+
+      // Mode-specific gameplay messages are routed to their own room kind; a
+      // message meant for the other mode is simply ignored rather than trusted.
       switch (message.type) {
         case 'submit':
-          connection.room.submitStroke(connection.slot, message.points);
+          if (room.kind === 'classic') room.submitStroke(connection.slot, message.points);
           break;
         case 'cast':
-          connection.room.submitCast(connection.slot, message.direction);
+          if (room.kind === 'classic') room.submitCast(connection.slot, message.direction);
           break;
         case 'move':
-          connection.room.submitMove(connection.slot, message.direction, message.jump);
+          if (room.kind === 'classic') room.submitMove(connection.slot, message.direction, message.jump);
+          break;
+        case 'arenaInput':
+          if (room.kind === 'arena') room.input(connection.slot, message.move, message.jump);
+          break;
+        case 'arenaDodge':
+          if (room.kind === 'arena') room.dodge(connection.slot, message.dir);
           break;
         case 'rematch':
-          connection.room.voteRematch(connection.slot, Date.now());
+          room.voteRematch(connection.slot, Date.now());
           break;
         case 'leave':
-          connection.room.markDisconnected(connection.slot, Date.now(), send);
+          room.markDisconnected(connection.slot, Date.now(), send);
           connection.room = null;
           connection.slot = null;
           break;

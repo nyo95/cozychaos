@@ -56,6 +56,7 @@ interface TurnSubmission {
 }
 
 export class Room {
+  readonly kind = 'classic' as const;
   private state: MatchState;
   private readonly seats: (Seat | null)[] = [null, null];
   private positions: [Vec2, Vec2] = [spawnPosition(0), spawnPosition(1)];

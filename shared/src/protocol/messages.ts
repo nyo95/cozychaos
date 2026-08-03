@@ -3,6 +3,14 @@ import type { PlayerSlot } from '../match/state.js';
 import type { Vec2 } from '../spells/geometry.js';
 import type { RecipeSummary } from '../spells/composition.js';
 import type { Snapshot } from '../sim/world.js';
+import type { DodgeDir } from '../arena/state.js';
+
+/**
+ * Which game a room runs. `classic` is the turn-based drawing duel; `arena` is
+ * the real-time Rune Arena sub-game (DESIGN-RUNE-ARENA.md). A room's mode is
+ * fixed by whoever creates it; a player joining by code joins whatever it is.
+ */
+export type RoomMode = 'classic' | 'arena';
 
 /**
  * The client/server wire protocol. PRD §15 — the server is authoritative for
@@ -48,6 +56,8 @@ export interface JoinMessage {
   readonly code?: string;
   /** Presented on reconnect to reclaim a slot. A-06. */
   readonly reconnectToken?: string;
+  /** Which game to create. Only read when creating a fresh room; defaults to classic. */
+  readonly mode?: RoomMode;
 }
 
 /**
@@ -95,13 +105,33 @@ export interface LeaveMessage {
   readonly type: 'leave';
 }
 
+/**
+ * Real-time movement intent for the Rune Arena duel. Like `MoveMessage` this is
+ * intent, not position — the server integrates it — but it is legal for the
+ * whole duel, not just a Setup window, and the server owns confinement to the
+ * player's half of the arena.
+ */
+export interface ArenaInputMessage {
+  readonly type: 'arenaInput';
+  readonly move: -1 | 0 | 1;
+  readonly jump: boolean;
+}
+
+/** A swipe-triggered dodge in the Rune Arena (Tekken mapping, DESIGN §4). */
+export interface ArenaDodgeMessage {
+  readonly type: 'arenaDodge';
+  readonly dir: DodgeDir;
+}
+
 export type ClientMessage =
   | JoinMessage
   | SubmitStrokeMessage
   | CastMessage
   | MoveMessage
   | RematchMessage
-  | LeaveMessage;
+  | LeaveMessage
+  | ArenaInputMessage
+  | ArenaDodgeMessage;
 
 // ── Server → Client ────────────────────────────────────────────────────────
 
@@ -178,6 +208,45 @@ export interface ErrorMessage {
   readonly reason: string;
 }
 
+// ── Rune Arena (real-time sub-game) ──────────────────────────────────────────
+
+/** Public per-player view for the Rune Arena, broadcast at tick rate. */
+export interface ArenaPlayerView {
+  readonly slot: PlayerSlot;
+  readonly name: string;
+  readonly connected: boolean;
+  readonly x: number;
+  readonly y: number;
+  readonly hp: number;
+  readonly facing: -1 | 1;
+  /** True while dodge i-frames are active — the client shows the dodge pose. */
+  readonly dodging: boolean;
+  readonly dodgeDir: DodgeDir | null;
+}
+
+/** Full Rune Arena state for one frame. Analogous to `RoomView` for classic. */
+export interface ArenaView {
+  readonly code: string;
+  readonly mode: 'arena';
+  readonly started: boolean;
+  readonly winner: PlayerSlot | null;
+  readonly timeMs: number;
+  readonly players: readonly ArenaPlayerView[];
+}
+
+export interface ArenaWelcomeMessage {
+  readonly type: 'arenaWelcome';
+  readonly slot: PlayerSlot;
+  readonly code: string;
+  readonly reconnectToken: string;
+  readonly view: ArenaView;
+}
+
+export interface ArenaStateMessage {
+  readonly type: 'arenaState';
+  readonly view: ArenaView;
+}
+
 export type ServerMessage =
   | WelcomeMessage
   | RoomStateMessage
@@ -186,7 +255,9 @@ export type ServerMessage =
   | SetupFrameMessage
   | AckMessage
   | ScoreMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | ArenaWelcomeMessage
+  | ArenaStateMessage;
 
 // ── Runtime validation ───────────────────────────────────────────────────────
 
@@ -212,12 +283,14 @@ export function parseClientMessage(raw: string, maxPoints: number): ClientMessag
     case 'join': {
       if (typeof message['name'] !== 'string') return null;
       const join: JoinMessage = { type: 'join', name: message['name'].slice(0, 24) };
+      const mode = message['mode'];
       return {
         ...join,
         ...(typeof message['code'] === 'string' ? { code: message['code'] } : {}),
         ...(typeof message['reconnectToken'] === 'string'
           ? { reconnectToken: message['reconnectToken'] }
           : {}),
+        ...(mode === 'classic' || mode === 'arena' ? { mode } : {}),
       };
     }
     case 'submit': {
@@ -249,6 +322,17 @@ export function parseClientMessage(raw: string, maxPoints: number): ClientMessag
       if (direction !== -1 && direction !== 0 && direction !== 1) return null;
       if (typeof message['jump'] !== 'boolean') return null;
       return { type: 'move', direction, jump: message['jump'] };
+    }
+    case 'arenaInput': {
+      const move = message['move'];
+      if (move !== -1 && move !== 0 && move !== 1) return null;
+      if (typeof message['jump'] !== 'boolean') return null;
+      return { type: 'arenaInput', move, jump: message['jump'] };
+    }
+    case 'arenaDodge': {
+      const dir = message['dir'];
+      if (dir !== 'left' && dir !== 'right' && dir !== 'up' && dir !== 'down') return null;
+      return { type: 'arenaDodge', dir };
     }
     case 'rematch':
       return { type: 'rematch' };
