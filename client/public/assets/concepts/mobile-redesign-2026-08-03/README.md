@@ -5,16 +5,17 @@ user-supplied gameplay screenshots, the accepted PixelLab dream-island
 environment, and the active PixelLab cyan wizard sheets were used as visual
 references.
 
-These files are an art-direction and implementation pilot. Nothing in this
-folder is wired to the renderer yet.
+These files are an art-direction and implementation pilot. The responsive
+runtime now follows the reference hierarchy using HTML/CSS and the procedural
+renderer; no sheet pixels are runtime collision or projectile geometry.
 
 | File | Intended use | Status |
 |---|---|---|
-| `mobile-gameplay-ideal.png` | Portrait target for the Aim phase and mobile HUD hierarchy | Reference |
+| `mobile-gameplay-ideal.png` | Portrait target for the Aim phase and mobile HUD hierarchy | Reference; hierarchy implemented in HTML/CSS |
 | `mobile-hud-kit.png` | Text-free reusable HUD pieces | Candidate; slice and test at 1x before runtime use |
 | `environment-props-kit.png` | Parallax clouds, decorative trims, and reflector skins | Candidate; presentation only |
 | `feedback-vfx-sheet.png` | Lock, collision, reflection, Wobble, rescue, wind, and score feedback | Candidate; never replace literal rune matter |
-| `cyan-hit-ko-concept-sheet.png` | Six hit frames plus six rescue-KO frames | Animation concept; requires pivot/frame cleanup |
+| `cyan-hit-ko-concept-sheet.png` | Six hit frames plus six rescue-KO frames | Rejected for runtime: inconsistent pose bounds/pivots and clipped rightmost cells |
 
 ## Guardrails
 
@@ -35,4 +36,3 @@ converted to alpha PNG with the installed `remove_chroma_key.py` helper using
 border sampling, a soft matte, and despill. The environment pack was regenerated
 on a flat red key to avoid destroying its violet/magenta cloud palette, then
 converted with a tight hard key and one-pixel edge contraction.
-
