@@ -37,16 +37,18 @@
 
       <section class="match" id="match" hidden>
         <header class="match__topbar">
-          <div class="room-badge">
-            <span>Room</span>
-            <strong id="room-code">----</strong>
-            <button id="copy-code" type="button">Copy</button>
-          </div>
+          <div class="room-badge"><span>Room</span><strong id="room-code">----</strong></div>
           <div class="phase-card">
             <strong id="phase-label">Waiting for rival</strong>
             <span id="phase-timer">--</span>
           </div>
-          <button class="leave-button" id="leave-room" type="button">Leave</button>
+          <details class="match-menu">
+            <summary aria-label="Match menu">•••</summary>
+            <div class="match-menu__panel">
+              <button id="copy-code" type="button">Copy room code</button>
+              <button class="leave-button" id="leave-room" type="button">Leave match</button>
+            </div>
+          </details>
         </header>
 
         <div class="scoreline">
@@ -54,6 +56,7 @@
             <strong id="player-0-name">Wizard 1</strong>
             <span class="player-chip__stars" id="player-0-stars">☆☆☆</span>
             <span class="player-chip__state" id="player-0-state">You</span>
+            <span class="wobble-pips" id="player-0-wobble" aria-label="No Wobble"><i></i><i></i><i></i></span>
           </article>
 
           <div class="turn-flow" aria-label="Turn flow">
@@ -69,6 +72,7 @@
             <strong id="player-1-name">Waiting...</strong>
             <span class="player-chip__stars" id="player-1-stars">☆☆☆</span>
             <span class="player-chip__state" id="player-1-state">Offline</span>
+            <span class="wobble-pips" id="player-1-wobble" aria-label="No Wobble"><i></i><i></i><i></i></span>
           </article>
         </div>
 
@@ -76,7 +80,7 @@
           <canvas id="arena" aria-label="Multiplayer spell arena"></canvas>
 
           <div class="arena__top">
-            <div class="wind" id="wind-status">Wind calm · 3 crystals</div>
+            <div class="wind"><span class="wind__arrow" id="wind-arrow" aria-hidden="true">➜</span><span id="wind-status">Calm · 3 crystals</span></div>
             <div class="ink" aria-label="Ink spent">
               <div class="ink__bar"><span id="ink-fill"></span></div>
               <span class="ink__label" id="ink-label">0 / 100 Ink spent</span>

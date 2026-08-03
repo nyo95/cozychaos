@@ -3,7 +3,6 @@ import {
   composeStroke,
   predictLaunch,
   spawnPosition,
-  type LaunchPrediction,
   type PlayerSlot,
   type RecipeSummary,
   type RoomView,
@@ -25,6 +24,7 @@ import {
   type CameraFrame,
   type Viewport,
 } from '../rendering/viewport.js';
+import { commitmentReadout, windReadout, wobbleLevel } from './matchPresentation.js';
 
 interface SavedSeat {
   readonly name: string;
@@ -51,9 +51,11 @@ interface Elements {
   readonly inkFill: HTMLElement;
   readonly inkLabel: HTMLElement;
   readonly windStatus: HTMLElement;
+  readonly windArrow: HTMLElement;
   readonly playerNames: readonly [HTMLElement, HTMLElement];
   readonly playerStars: readonly [HTMLElement, HTMLElement];
   readonly playerStates: readonly [HTMLElement, HTMLElement];
+  readonly playerWobbles: readonly [HTMLElement, HTMLElement];
   readonly spellPreview: HTMLElement;
   readonly spellRole: HTMLElement;
   readonly reveal: HTMLElement;
@@ -310,9 +312,7 @@ export class MatchGame {
       return;
     }
     this.submitted = true;
-    this.elements.hint.textContent = 'Rune locked. Waiting for your rival...';
-    this.renderInk();
-    this.renderSpellPreview();
+    this.renderRoom();
   }
 
   private canDraw(): boolean {
@@ -356,7 +356,7 @@ export class MatchGame {
       return;
     }
     this.castSubmitted = true;
-    this.elements.hint.textContent = 'Direction locked. Waiting for Reveal...';
+    this.renderRoom();
   }
 
   private renderRoom(): void {
@@ -369,16 +369,23 @@ export class MatchGame {
     this.elements.phase.textContent = connected < 2
       ? 'Waiting for rival'
       : PHASE_LABEL[room.phase];
-    this.elements.windStatus.textContent = `${windLabel(room.wind.x)} · ${room.obstacles.length} crystals`;
+    const wind = windReadout(room.wind.x);
+    this.elements.windStatus.textContent = `${wind.label} · ${room.obstacles.length} crystals`;
+    this.elements.windArrow.dataset['direction'] = String(wind.direction);
 
     for (const slot of [0, 1] as const) {
       const player = room.players[slot];
       this.elements.playerNames[slot].textContent = player?.name ?? 'Waiting...';
       this.elements.playerStars[slot].textContent = stars(player?.stars ?? 0);
-      const identity = slot === this.slot ? 'You' : 'Rival';
+      const isLocal = slot === this.slot;
+      const privatelyComposing = room.phase === 'draw' || room.phase === 'cast';
+      const identity = isLocal
+        ? (this.submitted && room.phase === 'draw' ? 'Rune locked' : this.castSubmitted && room.phase === 'cast' ? 'Aim locked' : 'You')
+        : (privatelyComposing ? 'Rune hidden' : 'Rival');
       this.elements.playerStates[slot].textContent = player?.connected ? identity : 'Offline';
       this.elements.playerStates[slot].classList.toggle('is-offline', !player?.connected);
-      this.elements.playerStates[slot].classList.toggle('is-local', slot === this.slot);
+      this.elements.playerStates[slot].classList.toggle('is-local', isLocal);
+      this.renderWobble(slot);
     }
 
     if (room.players.filter((player) => player.connected).length < 2) {
@@ -425,16 +432,17 @@ export class MatchGame {
     const launch = predictLaunch(this.preview.inkCommitted);
     this.elements.spellPreview.textContent =
       `${launch.particles} nodes · mass ${launch.mass.toFixed(2)} · speed ${launch.speed.toFixed(2)}`;
-    const reach = reachReadout(launch);
-    this.elements.spellRole.textContent = reach.label;
-    this.elements.spellRole.className = `spell-readout__role is-${reach.kind}`;
+    const readout = commitmentReadout(launch);
+    this.elements.spellRole.textContent = readout.label;
+    this.elements.spellRole.className = `spell-readout__role is-${readout.tone}`;
+    this.elements.reveal.textContent = readout.detail;
   }
 
   private renderReveal(summaries: readonly (RecipeSummary | null)[]): void {
     const describe = (summary: RecipeSummary | null): string => {
       if (!summary) return 'no rune';
       const launch = predictLaunch(summary.inkCommitted);
-      return `${launch.particles} nodes, mass ${launch.mass.toFixed(2)}, ${reachReadout(launch).label.toLowerCase()}`;
+      return `${launch.particles} nodes, mass ${launch.mass.toFixed(2)}, ${commitmentReadout(launch).label.toLowerCase()}`;
     };
     const rivalSlot = this.slot === 0 ? 1 : 0;
     const mine = this.slot === null ? null : summaries[this.slot] ?? null;
@@ -452,6 +460,15 @@ export class MatchGame {
     // Unspent Ink is simply unspent now. Ward was removed because its own
     // maths made it decorative, and because mass already is the defence.
     this.elements.inkLabel.textContent = `${Math.round(CONFIG.ink.total - remaining)} / ${CONFIG.ink.total} Ink spent`;
+  }
+
+  private renderWobble(slot: PlayerSlot): void {
+    const body = this.latestSnapshot.bodies.find((candidate) => candidate.slot === slot);
+    const value = body?.wobble ?? 0;
+    const level = wobbleLevel(value);
+    const element = this.elements.playerWobbles[slot];
+    element.dataset['level'] = String(level);
+    element.setAttribute('aria-label', level === 0 ? 'No Wobble' : `Wobble ${level} of 3`);
   }
 
   private showWinner(winner: PlayerSlot): void {
@@ -533,6 +550,7 @@ export class MatchGame {
       this.elements.timer.textContent = room.players.filter((player) => player.connected).length < 2
         ? '--'
         : `${Math.ceil(remaining / 1000)}s`;
+      for (const slot of [0, 1] as const) this.renderWobble(slot);
     }
 
     // Camera easing happens here, not on phase change, so the pull-back at
@@ -587,27 +605,6 @@ function idleSnapshot(): Snapshot {
     particles: [],
     bonds: [],
   };
-}
-
-/**
- * Turns predicted reach into the one word the player actually needs.
- *
- * The comparison is against the real gap between the two spawn points, so the
- * label stays honest if spawn positions are ever retuned. Bands are wide on
- * purpose: a knife-edge boundary here would recreate exactly the "commitment
- * becomes a coin flip" failure that Session 8 spent its whole budget fixing.
- */
-function reachReadout(launch: LaunchPrediction): { label: string; kind: string } {
-  const gap = CONFIG.player.spawnX * 2;
-  if (launch.maxReach < gap * 0.55) return { label: 'Shield — lands at your feet', kind: 'shield' };
-  if (launch.maxReach < gap * 1.05) return { label: 'Screen — falls short', kind: 'screen' };
-  return { label: 'Strike — reaches your rival', kind: 'strike' };
-}
-
-function windLabel(x: number): string {
-  if (Math.abs(x) < 1e-4) return 'Wind: calm';
-  const strength = Math.abs(x) >= 0.35 ? 'strong' : Math.abs(x) >= 0.22 ? 'medium' : 'light';
-  return `Wind ${x > 0 ? '→' : '←'} ${strength}`;
 }
 
 function stars(count: number): string {
@@ -668,9 +665,11 @@ export function mountMatchGame(): MatchGame {
     inkFill: byId('ink-fill'),
     inkLabel: byId('ink-label'),
     windStatus: byId('wind-status'),
+    windArrow: byId('wind-arrow'),
     playerNames: [byId('player-0-name'), byId('player-1-name')],
     playerStars: [byId('player-0-stars'), byId('player-1-stars')],
     playerStates: [byId('player-0-state'), byId('player-1-state')],
+    playerWobbles: [byId('player-0-wobble'), byId('player-1-wobble')],
     spellPreview: byId('spell-preview'),
     spellRole: byId('spell-role'),
     reveal: byId('reveal-summary'),

@@ -162,3 +162,12 @@ repository's accepted PixelLab environment and active cyan wizard sheets.
 The pack intentionally contains no fixed spell projectile. Rune bodies and
 fragments remain procedural, and environment pixels remain presentation-only.
 See the pack-local `README.md` and `manifest.json` for integration guardrails.
+
+The target now informs the responsive HTML/CSS hierarchy, colour, wind
+emphasis, and compact phase treatment, but no generated pixels were promoted
+to runtime. The cyan hit/rescue-KO concept was rejected: feet and pose bounds
+move substantially between cells, rescue bubbles change the occupied box, and
+right-edge content is clipped. Promotion requires hand-cleaned per-frame
+bounds, a stable foot/pelvis anchor, repaired edge pixels, and validation at
+48 px and 80 px before deterministic pink palette remapping. The accepted
+idle/cast pilot and procedural fallback remain safer.
