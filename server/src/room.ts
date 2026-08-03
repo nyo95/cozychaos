@@ -2,16 +2,24 @@ import { randomUUID } from 'node:crypto';
 import {
   CONFIG,
   applyResolveOutcome,
+  applyTurnCap,
   buildRuneBody,
+  canMove,
   clamp,
   composeStroke,
   createMatch,
+  createSetupBody,
   createTurnEnvironment,
+  decayWobble,
   nextPhase,
   runResolve,
   spawnPosition,
   startNextTurn,
+  stepSetupMovement,
+  NEUTRAL_INTENT,
   type MatchState,
+  type MoveIntent,
+  type SetupBody,
   type Phase,
   type PlayerSlot,
   type RecipeSummary,
@@ -60,6 +68,13 @@ export class Room {
   private phaseStartedMs = 0;
   private lastTickMs = 0;
   private emptySinceMs: number | null = null;
+
+  // M-04. Live only during Setup: `setupBodies` is non-null exactly while the
+  // phase clock is in Setup, so a stray `move` outside the phase has nowhere to
+  // land even if the phase check above it were ever removed.
+  private setupBodies: [SetupBody, SetupBody] | null = null;
+  private moveIntents: [MoveIntent, MoveIntent] = [NEUTRAL_INTENT, NEUTRAL_INTENT];
+  private setupSteppedMs = 0;
 
   private resolve: ResolveResult | null = null;
   private resolveStartedMs = 0;
@@ -150,22 +165,87 @@ export class Room {
     );
   }
 
+  /**
+   * M-03 — accepts a stroke, and says so.
+   *
+   * Two defects were fixed here. `strokeLimits.submitGraceMs` existed but was
+   * never read: a stroke released on the last frame of Draw lost to its own
+   * network latency, so a player on a slow connection was quietly playing a
+   * shorter Draw phase than their opponent. That contradicts A-03 and PRD §15,
+   * which put latency outside the set of things that decide a Turn.
+   *
+   * And the client displayed "Rune locked" the instant it *sent*, whether or
+   * not anything arrived. Now the server acknowledges, and the client only
+   * claims a lock it actually has.
+   */
   submitStroke(slot: PlayerSlot, points: readonly Vec2[]): void {
-    // Accepted only during Draw, and only once. PRD §15 — locked before Reveal.
-    if (this.state.phase !== 'draw') return;
-    if (this.submissions[slot].points !== null) return;
+    if (!this.acceptsLateInput('draw')) {
+      this.sendTo(slot, { type: 'ack', of: 'submit', accepted: false, reason: 'phase-closed' });
+      return;
+    }
+    if (this.submissions[slot].points !== null) {
+      this.sendTo(slot, { type: 'ack', of: 'submit', accepted: false, reason: 'already-submitted' });
+      return;
+    }
     const repaired = repairStroke(points);
     this.submissions[slot] = {
       points: repaired,
       recipe: composeStroke(repaired).recipe,
       castDirection: null,
     };
+    this.sendTo(slot, { type: 'ack', of: 'submit', accepted: true });
   }
 
   submitCast(slot: PlayerSlot, direction: Vec2): void {
-    if (this.state.phase !== 'cast') return;
-    if (this.submissions[slot].castDirection !== null) return;
+    if (!this.acceptsLateInput('cast')) {
+      this.sendTo(slot, { type: 'ack', of: 'cast', accepted: false, reason: 'phase-closed' });
+      return;
+    }
+    if (this.submissions[slot].castDirection !== null) {
+      this.sendTo(slot, { type: 'ack', of: 'cast', accepted: false, reason: 'already-submitted' });
+      return;
+    }
     this.submissions[slot].castDirection = direction;
+    this.sendTo(slot, { type: 'ack', of: 'cast', accepted: true });
+  }
+
+  /**
+   * True while `phase` is open, plus the configured grace window after it.
+   *
+   * The grace is bounded by the *next* phase still being the one that follows,
+   * so a stroke can never arrive late enough to be applied to a different Turn.
+   * Reveal is what truly locks a submission (PRD §15); grace only covers the
+   * gap between a player letting go and the packet landing.
+   */
+  private acceptsLateInput(phase: 'draw' | 'cast'): boolean {
+    if (this.state.phase === phase) return true;
+    if (this.state.phase !== nextPhase(phase)) return false;
+    const sincePhaseStart = this.lastTickMs - this.phaseStartedMs;
+    return sincePhaseStart <= CONFIG.strokeLimits.submitGraceMs;
+  }
+
+  private sendTo(slot: PlayerSlot, message: ServerMessage): void {
+    const seat = this.seats[slot];
+    if (seat && seat.connected) seat.send(message);
+  }
+
+  /**
+   * Records a movement intent (M-04).
+   *
+   * Two gates, not one: `canMove` reads `CONFIG.movement.activePhases` so A-03
+   * stays a config fact rather than a hard-coded phase name here, and
+   * `setupBodies` is only non-null inside Setup. A `move` that arrives late —
+   * after the phase clock has moved on — is dropped rather than applied to the
+   * next Setup, because applying it would let a laggy client start walking
+   * before its opponent could.
+   */
+  submitMove(slot: PlayerSlot, direction: -1 | 0 | 1, jump: boolean): void {
+    if (!canMove(this.state)) return;
+    if (this.setupBodies === null) return;
+    const previous = this.moveIntents[slot];
+    // Jump is edge-triggered and latches until the integrator consumes it, so a
+    // press that lands between two ticks is not silently dropped.
+    this.moveIntents[slot] = { direction, jump: jump || previous.jump };
   }
 
   voteRematch(slot: PlayerSlot, nowMs = this.lastTickMs): void {
@@ -197,8 +277,11 @@ export class Room {
     // available once both seats are connected again.
     if (this.state.phase === 'setup' && !this.allPlayersConnected()) {
       this.phaseStartedMs = nowMs;
+      this.setupSteppedMs = 0;
       return;
     }
+
+    if (this.state.phase === 'setup') this.stepSetup(nowMs);
 
     if (this.state.phase === 'resolve') {
       this.streamResolve(nowMs);
@@ -239,8 +322,76 @@ export class Room {
   private enterPhase(phase: Phase, nowMs: number): void {
     this.state = { ...this.state, phase, phaseElapsedMs: 0 };
     this.phaseStartedMs = nowMs;
-    if (phase === 'setup') this.clearSubmissions();
+    if (phase === 'setup') {
+      this.clearSubmissions();
+      this.beginSetupMovement(nowMs);
+    } else {
+      this.endSetupMovement();
+    }
   }
+
+  /** M-04 — opens the Setup movement window from the authoritative positions. */
+  private beginSetupMovement(nowMs: number): void {
+    this.setupBodies = [
+      createSetupBody(0, this.positions[0]),
+      createSetupBody(1, this.positions[1]),
+    ];
+    this.moveIntents = [NEUTRAL_INTENT, NEUTRAL_INTENT];
+    this.setupSteppedMs = 0;
+    this.lastTickMs = Math.max(this.lastTickMs, nowMs);
+  }
+
+  /**
+   * Closes the window and commits the result.
+   *
+   * Committing here rather than per-tick means `positions` — the value Resolve
+   * builds its world from — only ever changes at a phase boundary. A rune is
+   * therefore always spawned from where the wizard finished standing, never
+   * from a position that was still moving when the stroke was read.
+   */
+  private endSetupMovement(): void {
+    const bodies = this.setupBodies;
+    if (bodies === null) return;
+    this.positions = [
+      { x: bodies[0].x, y: bodies[0].y },
+      { x: bodies[1].x, y: bodies[1].y },
+    ];
+    this.setupBodies = null;
+    this.moveIntents = [NEUTRAL_INTENT, NEUTRAL_INTENT];
+  }
+
+  /**
+   * Integrates held intents against the phase clock, not the wall clock.
+   *
+   * `setupSteppedMs` tracks how much of the phase has already been simulated so
+   * a slow or bunched tick cannot hand the integrator more Setup time than the
+   * phase actually contains. Without it, a serverless function resuming from
+   * suspension (M-05) would let both wizards sprint the full island in one
+   * frame.
+   */
+  private stepSetup(nowMs: number): void {
+    const bodies = this.setupBodies;
+    if (bodies === null) return;
+    const budget = Math.min(nowMs - this.phaseStartedMs, phaseDuration('setup'));
+    const deltaMs = budget - this.setupSteppedMs;
+    if (deltaMs <= 0) return;
+    this.setupSteppedMs = budget;
+    stepSetupMovement(bodies, this.moveIntents, deltaMs / 1000);
+    // A consumed jump must not repeat on the next tick; a held direction must.
+    this.moveIntents = [
+      { direction: this.moveIntents[0].direction, jump: false },
+      { direction: this.moveIntents[1].direction, jump: false },
+    ];
+    this.broadcast({
+      type: 'setupFrame',
+      positions: [
+        { x: bodies[0].x, y: bodies[0].y },
+        { x: bodies[1].x, y: bodies[1].y },
+      ],
+      jumpsLeft: [bodies[0].jumpsLeft, bodies[1].jumpsLeft],
+    });
+  }
+
 
   /** Both runes are read server-side and revealed together (PRD §15). */
   private lockAndReveal(): void {
@@ -309,10 +460,20 @@ export class Room {
       this.positions = [spawnPosition(0), spawnPosition(1)];
       this.wobble = [0, 0];
     } else {
-      // No knock-out: the Round continues, positions and Wobble carry over.
-      next = startNextTurn(this.state);
-      this.positions = [resolve.endPositions[0], resolve.endPositions[1]];
-      this.wobble = [resolve.endWobble[0], resolve.endWobble[1]];
+      // No knock-out. M-01: a Round that has run this long has no natural exit,
+      // so the cap decides it on Wobble before checking for another Turn.
+      const capped = applyTurnCap(this.state, [resolve.endWobble[0], resolve.endWobble[1]]);
+      if (capped !== null) {
+        next = capped;
+        this.positions = [spawnPosition(0), spawnPosition(1)];
+        this.wobble = [0, 0];
+      } else {
+        // The Round continues: positions carry over, Wobble carries over minus
+        // the per-Turn bleed (M-06).
+        next = startNextTurn(this.state);
+        this.positions = [resolve.endPositions[0], resolve.endPositions[1]];
+        this.wobble = [decayWobble(resolve.endWobble[0]), decayWobble(resolve.endWobble[1])];
+      }
     }
 
     this.state = { ...next, phase: 'score', phaseElapsedMs: 0 };

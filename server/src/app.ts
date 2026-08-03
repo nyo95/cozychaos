@@ -88,6 +88,9 @@ export function createCozyChaosServer(): CozyChaosServer {
         case 'cast':
           connection.room.submitCast(connection.slot, message.direction);
           break;
+        case 'move':
+          connection.room.submitMove(connection.slot, message.direction, message.jump);
+          break;
         case 'rematch':
           connection.room.voteRematch(connection.slot, Date.now());
           break;

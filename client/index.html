@@ -36,59 +36,79 @@
       </section>
 
       <section class="match" id="match" hidden>
-        <header class="match__topbar">
-          <div class="room-badge">
-            <span>Room</span>
-            <strong id="room-code">----</strong>
-            <button id="copy-code" type="button">Copy</button>
-          </div>
-          <div class="phase-card">
-            <strong id="phase-label">Waiting for rival</strong>
-            <span id="phase-timer">--</span>
-          </div>
-          <button class="leave-button" id="leave-room" type="button">Leave</button>
-        </header>
-
-        <div class="scoreline">
-          <article class="player-chip player-chip--zero">
-            <strong id="player-0-name">Wizard 1</strong>
-            <span class="player-chip__stars" id="player-0-stars">☆☆☆</span>
-            <span class="player-chip__state" id="player-0-state">You</span>
-          </article>
-
-          <div class="turn-flow" aria-label="Turn flow">
-            <span class="turn-flow__meta" id="turn-label">R1 · T1</span>
-            <ol>
-              <li class="turn-flow__step turn-flow__step--draw"><b>1</b><i>Draw</i></li>
-              <li class="turn-flow__step turn-flow__step--cast"><b>2</b><i>Aim</i></li>
-              <li class="turn-flow__step turn-flow__step--resolve"><b>3</b><i>Clash</i></li>
-            </ol>
-          </div>
-
-          <article class="player-chip player-chip--one">
-            <strong id="player-1-name">Waiting...</strong>
-            <span class="player-chip__stars" id="player-1-stars">☆☆☆</span>
-            <span class="player-chip__state" id="player-1-state">Offline</span>
-          </article>
-        </div>
-
         <section class="arena-wrap">
           <canvas id="arena" aria-label="Multiplayer spell arena"></canvas>
 
-          <div class="arena__top">
-            <div class="wind" id="wind-status">Wind calm · 3 crystals</div>
-            <div class="ink" aria-label="Ink spent">
-              <div class="ink__bar"><span id="ink-fill"></span></div>
-              <span class="ink__label" id="ink-label">0 / 100 Ink spent</span>
+          <header class="match__topbar">
+            <div class="room-badge"><span>Room</span><strong id="room-code">----</strong></div>
+            <details class="match-menu">
+              <summary aria-label="Match menu">•••</summary>
+              <div class="match-menu__panel">
+                <button id="copy-code" type="button">Copy room code</button>
+                <button class="leave-button" id="leave-room" type="button">Leave match</button>
+              </div>
+            </details>
+          </header>
+
+          <div class="scoreline">
+            <article class="player-chip player-chip--zero">
+              <span class="player-chip__portrait" aria-hidden="true"></span>
+              <div class="player-chip__copy">
+                <strong id="player-0-name">Wizard 1</strong>
+                <span class="player-chip__stars" id="player-0-stars">☆☆☆</span>
+                <span class="player-chip__state" id="player-0-state">You</span>
+                <span class="wobble-pips" id="player-0-wobble" aria-label="No Wobble"><i></i><i></i><i></i></span>
+              </div>
+            </article>
+
+            <div class="match__status-stack">
+              <div class="phase-card">
+                <strong id="phase-label">Waiting</strong>
+                <span id="phase-timer">--</span>
+              </div>
+              <div class="turn-flow" aria-label="Turn flow">
+                <span class="turn-flow__meta" id="turn-label">Round 1</span>
+                <ol>
+                  <li class="turn-flow__step turn-flow__step--draw"><b>1</b><i>Draw</i></li>
+                  <li class="turn-flow__step turn-flow__step--cast"><b>2</b><i>Aim</i></li>
+                  <li class="turn-flow__step turn-flow__step--resolve"><b>3</b><i>Clash</i></li>
+                </ol>
+              </div>
             </div>
+
+            <article class="player-chip player-chip--one">
+              <span class="player-chip__portrait" aria-hidden="true"></span>
+              <div class="player-chip__copy">
+                <strong id="player-1-name">Waiting...</strong>
+                <span class="player-chip__stars" id="player-1-stars">☆☆☆</span>
+                <span class="player-chip__state" id="player-1-state">Offline</span>
+                <span class="wobble-pips" id="player-1-wobble" aria-label="No Wobble"><i></i><i></i><i></i></span>
+              </div>
+            </article>
           </div>
 
-          <p class="match__hint" id="match-hint">Share the room code. The duel starts when your rival joins.</p>
+          <div class="arena__top">
+            <div class="wind"><span class="wind__arrow" id="wind-arrow" aria-hidden="true">➜</span><span id="wind-status">Calm · 3 crystals</span></div>
+          </div>
 
-          <div class="spell-readout">
-            <strong id="spell-preview">Draw anything. Small and quick, or big and heavy.</strong>
-            <span class="spell-readout__role" id="spell-role"></span>
-            <p id="reveal-summary" aria-live="polite"></p>
+          <span class="spell-readout__role" id="spell-role"></span>
+
+          <div class="arena__bottom">
+            <p class="match__hint" id="match-hint">Share the room code. The duel starts when your rival joins.</p>
+            <div class="ink" aria-label="Ink remaining">
+              <span class="ink__orb" aria-hidden="true"></span>
+              <span class="ink__label" id="ink-label">100 Ink left</span>
+              <div class="ink__bar"><span id="ink-fill"></span></div>
+            </div>
+            <div class="spell-readout">
+              <span class="spell-readout__gesture" aria-hidden="true"></span>
+              <div class="spell-readout__copy">
+                <strong class="spell-readout__action" id="action-label">Waiting for rival</strong>
+                <small id="spell-preview">Draw anything. Small and quick, or big and heavy.</small>
+                <p id="reveal-summary" aria-live="polite"></p>
+              </div>
+            </div>
+            <div class="setup-controls-slot" id="setup-controls-slot" aria-hidden="true"></div>
           </div>
         </section>
 

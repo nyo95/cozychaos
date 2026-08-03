@@ -1,0 +1,74 @@
+/*
+ * Movement pad (M-04).
+ *
+ * Kept in its own file rather than appended to `styles.css` on purpose:
+ * `styles.css` is Codex's under the PLAN §1 ownership split and had uncommitted
+ * work in flight when this landed. Folding this block into `styles.css` later
+ * is a clean, mechanical move — nothing here depends on being a separate file.
+ *
+ * Sizes are floors, not decorations: PRD §12 and A-08 require 44x44 CSS px
+ * minimum touch targets, and these are the only controls a player uses under
+ * time pressure.
+ */
+
+.setup-controls-slot {
+  display: none;
+}
+
+/* Codex's rule reveals the slot when it has content; this reveals it when the
+   phase is live. Both must agree, so the pad cannot appear outside Setup. */
+.match[data-phase='setup'] .setup-controls-slot[data-active] {
+  display: block;
+}
+
+.move-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(3.5rem, 1fr));
+  gap: 0.5rem;
+  width: min(20rem, 100%);
+  margin: 0 auto;
+}
+
+.move-pad__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.6rem 0;
+  border: 1px solid rgba(150, 119, 237, 0.5);
+  border-radius: 0.85rem;
+  background: rgba(24, 15, 62, 0.72);
+  color: #e4d8ff;
+  font-size: 1.1rem;
+  line-height: 1;
+  /* A held direction button must not also select text or fire a double-tap
+     zoom; both would interrupt a three-second phase. */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+}
+
+.move-pad__button:disabled {
+  opacity: 0.35;
+}
+
+/* `data-held` is driven by pointer state, not `:active`, so a finger that
+   slides off the button still reads as held until it is actually released. */
+.move-pad__button[data-held] {
+  border-color: #63d6ec;
+  background: rgba(99, 214, 236, 0.24);
+  transform: translateY(1px);
+}
+
+.move-pad__button:focus-visible {
+  outline: 2px solid #ffe095;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .move-pad__button {
+    transition: none;
+  }
+}

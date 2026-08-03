@@ -1,0 +1,593 @@
+{
+  "assets": {
+    "actionPanelOrnament": {
+      "height": 192,
+      "kind": "image",
+      "path": "/assets/mobile-ui/hud/action-panel-ornament.png",
+      "purpose": "Text-free bottom action panel with touch-drag glyph and divider.",
+      "resampling": "none",
+      "sha256": "ccd02cd5a17c1be11986ee24f1409257212b59410d99b33c1e235dd357aecc86",
+      "source": {
+        "crop": [
+          74,
+          1009,
+          1178,
+          1201
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/mobile-hud-kit.png"
+      },
+      "validation": {
+        "alpha": true,
+        "nonTransparentCoverage": 0.884832,
+        "transparentCorners": true
+      },
+      "width": 1104
+    },
+    "collisionBurst": {
+      "anchor": "center",
+      "columns": 4,
+      "frameCount": 4,
+      "frameHeight": 192,
+      "frameWidth": 192,
+      "height": 192,
+      "kind": "sprite-sheet",
+      "loop": false,
+      "path": "/assets/mobile-ui/vfx/collision-burst.png",
+      "purpose": "Presentation-only cyan/pink rune collision burst.",
+      "resampling": "none",
+      "rows": 1,
+      "sha256": "823758759bd6ebe9d00e80d33bfdb49abeaa538ce5b6595a1d8102622fb66c0d",
+      "source": {
+        "alphaTrimmedBounds": [
+          [
+            648,
+            269,
+            782,
+            394
+          ],
+          [
+            800,
+            248,
+            948,
+            409
+          ],
+          [
+            962,
+            266,
+            1073,
+            404
+          ],
+          [
+            1098,
+            264,
+            1220,
+            401
+          ]
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/feedback-vfx-sheet.png",
+        "selections": [
+          [
+            620,
+            220,
+            795,
+            420
+          ],
+          [
+            790,
+            220,
+            955,
+            420
+          ],
+          [
+            955,
+            220,
+            1090,
+            420
+          ],
+          [
+            1090,
+            220,
+            1254,
+            420
+          ]
+        ]
+      },
+      "suggestedFps": 12,
+      "validation": {
+        "alpha": true,
+        "frameCoverage": [
+          0.231581,
+          0.289931,
+          0.095703,
+          0.074246
+        ],
+        "nonTransparentCoverage": 0.172865,
+        "transparentCorners": true
+      },
+      "width": 768
+    },
+    "inkOrb": {
+      "height": 192,
+      "kind": "image",
+      "path": "/assets/mobile-ui/hud/ink-orb.png",
+      "purpose": "Ink meter emblem; decorative only, with live Ink supplied as HTML text.",
+      "resampling": "none",
+      "sha256": "6dfd8e282bf656acbcffab9761ebefb0be34d8dabd2add945637cc976c74fb00",
+      "source": {
+        "crop": [
+          50,
+          574,
+          242,
+          766
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/mobile-hud-kit.png"
+      },
+      "validation": {
+        "alpha": true,
+        "nonTransparentCoverage": 0.564535,
+        "transparentCorners": true
+      },
+      "width": 192
+    },
+    "lockPulseCyan": {
+      "anchor": "center",
+      "columns": 4,
+      "frameCount": 4,
+      "frameHeight": 192,
+      "frameWidth": 192,
+      "height": 192,
+      "kind": "sprite-sheet",
+      "loop": false,
+      "path": "/assets/mobile-ui/vfx/lock-pulse-cyan.png",
+      "purpose": "Local cyan rune-lock confirmation pulse.",
+      "resampling": "none",
+      "rows": 1,
+      "sha256": "d6241a3b18c13d9c6b71a725311114a189ec78f0441090e237ec6240ef1c4284",
+      "source": {
+        "alphaTrimmedBounds": [
+          [
+            28,
+            54,
+            164,
+            194
+          ],
+          [
+            197,
+            53,
+            332,
+            194
+          ],
+          [
+            357,
+            60,
+            477,
+            188
+          ],
+          [
+            510,
+            73,
+            611,
+            176
+          ]
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/feedback-vfx-sheet.png",
+        "selections": [
+          [
+            0,
+            20,
+            180,
+            220
+          ],
+          [
+            175,
+            20,
+            345,
+            220
+          ],
+          [
+            340,
+            20,
+            495,
+            220
+          ],
+          [
+            495,
+            20,
+            635,
+            220
+          ]
+        ]
+      },
+      "suggestedFps": 10,
+      "validation": {
+        "alpha": true,
+        "frameCoverage": [
+          0.169352,
+          0.203179,
+          0.115506,
+          0.036974
+        ],
+        "nonTransparentCoverage": 0.131253,
+        "transparentCorners": true
+      },
+      "width": 768
+    },
+    "lockPulsePink": {
+      "anchor": "center",
+      "columns": 4,
+      "frameCount": 4,
+      "frameHeight": 192,
+      "frameWidth": 192,
+      "height": 192,
+      "kind": "sprite-sheet",
+      "loop": false,
+      "path": "/assets/mobile-ui/vfx/lock-pulse-pink.png",
+      "purpose": "Rival-ready pink lock pulse; does not reveal the rival rune.",
+      "resampling": "none",
+      "rows": 1,
+      "sha256": "00284a72d0508793935566c033ffd544d983efff79f24c79dd2fe0ad0fdbb08d",
+      "source": {
+        "alphaTrimmedBounds": [
+          [
+            646,
+            53,
+            785,
+            195
+          ],
+          [
+            810,
+            54,
+            945,
+            194
+          ],
+          [
+            968,
+            62,
+            1088,
+            188
+          ],
+          [
+            1119,
+            77,
+            1216,
+            176
+          ]
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/feedback-vfx-sheet.png",
+        "selections": [
+          [
+            630,
+            20,
+            800,
+            220
+          ],
+          [
+            790,
+            20,
+            955,
+            220
+          ],
+          [
+            950,
+            20,
+            1105,
+            220
+          ],
+          [
+            1105,
+            20,
+            1254,
+            220
+          ]
+        ]
+      },
+      "suggestedFps": 10,
+      "validation": {
+        "alpha": true,
+        "frameCoverage": [
+          0.193739,
+          0.209988,
+          0.115723,
+          0.029053
+        ],
+        "nonTransparentCoverage": 0.137126,
+        "transparentCorners": true
+      },
+      "width": 768
+    },
+    "rescueBubbleCyan": {
+      "anchor": "center",
+      "columns": 4,
+      "frameCount": 4,
+      "frameHeight": 192,
+      "frameWidth": 192,
+      "height": 192,
+      "kind": "sprite-sheet",
+      "loop": false,
+      "path": "/assets/mobile-ui/vfx/rescue-bubble-cyan.png",
+      "purpose": "Presentation-only rescue/KO bubble dissolve.",
+      "resampling": "none",
+      "rows": 1,
+      "sha256": "dc2be62390e6cd8cf7e5c4b7742468fb8182e6448886bebc668856bccc7b55d3",
+      "source": {
+        "alphaTrimmedBounds": [
+          [
+            46,
+            678,
+            159,
+            803
+          ],
+          [
+            212,
+            683,
+            326,
+            802
+          ],
+          [
+            374,
+            694,
+            454,
+            798
+          ],
+          [
+            504,
+            708,
+            578,
+            786
+          ]
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/feedback-vfx-sheet.png",
+        "selections": [
+          [
+            0,
+            600,
+            180,
+            830
+          ],
+          [
+            170,
+            600,
+            340,
+            830
+          ],
+          [
+            330,
+            600,
+            500,
+            830
+          ],
+          [
+            490,
+            600,
+            650,
+            830
+          ]
+        ]
+      },
+      "suggestedFps": 8,
+      "validation": {
+        "alpha": true,
+        "frameCoverage": [
+          0.24585,
+          0.206733,
+          0.063205,
+          0.008328
+        ],
+        "nonTransparentCoverage": 0.131029,
+        "transparentCorners": true
+      },
+      "width": 768
+    },
+    "starReward": {
+      "anchor": "center",
+      "columns": 4,
+      "frameCount": 4,
+      "frameHeight": 192,
+      "frameWidth": 192,
+      "height": 192,
+      "kind": "sprite-sheet",
+      "loop": false,
+      "path": "/assets/mobile-ui/vfx/star-reward.png",
+      "purpose": "Presentation-only round-win Star sparkle.",
+      "resampling": "none",
+      "rows": 1,
+      "sha256": "970db49f11865a00b55a6a64592264693519eeba3ee3b2981c5bcdcb636718d3",
+      "source": {
+        "alphaTrimmedBounds": [
+          [
+            663,
+            1088,
+            766,
+            1190
+          ],
+          [
+            817,
+            1070,
+            939,
+            1202
+          ],
+          [
+            969,
+            1081,
+            1077,
+            1194
+          ],
+          [
+            1105,
+            1089,
+            1204,
+            1191
+          ]
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/feedback-vfx-sheet.png",
+        "selections": [
+          [
+            620,
+            1015,
+            800,
+            1254
+          ],
+          [
+            790,
+            1015,
+            955,
+            1254
+          ],
+          [
+            955,
+            1015,
+            1090,
+            1254
+          ],
+          [
+            1090,
+            1015,
+            1254,
+            1254
+          ]
+        ]
+      },
+      "suggestedFps": 10,
+      "validation": {
+        "alpha": true,
+        "frameCoverage": [
+          0.10281,
+          0.082709,
+          0.049127,
+          0.013943
+        ],
+        "nonTransparentCoverage": 0.062147,
+        "transparentCorners": true
+      },
+      "width": 768
+    },
+    "windDirectionPill": {
+      "height": 128,
+      "kind": "image",
+      "path": "/assets/mobile-ui/hud/wind-direction-pill.png",
+      "purpose": "Text-free wind-direction ornament; mirror/rotate from authoritative wind data.",
+      "resampling": "none",
+      "sha256": "59194d350b84e5bbb582c010be08d0b1cf8ea90eba9012854564c0b8df69dfdf",
+      "source": {
+        "crop": [
+          390,
+          392,
+          806,
+          520
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/mobile-hud-kit.png"
+      },
+      "validation": {
+        "alpha": true,
+        "nonTransparentCoverage": 0.842379,
+        "transparentCorners": true
+      },
+      "width": 416
+    },
+    "windStreak": {
+      "anchor": "right-center",
+      "columns": 4,
+      "frameCount": 4,
+      "frameHeight": 128,
+      "frameWidth": 192,
+      "height": 128,
+      "kind": "sprite-sheet",
+      "loop": true,
+      "path": "/assets/mobile-ui/vfx/wind-streak.png",
+      "purpose": "Ambient wind-readable streak; direction and strength remain data-driven.",
+      "resampling": "none",
+      "rows": 1,
+      "sha256": "e5898a60252702332ef3cab4e4b4bf2f0d384881d12e015a963aa60ec0f66dc7",
+      "source": {
+        "alphaTrimmedBounds": [
+          [
+            651,
+            903,
+            787,
+            1004
+          ],
+          [
+            812,
+            910,
+            936,
+            993
+          ],
+          [
+            959,
+            917,
+            1084,
+            973
+          ],
+          [
+            1114,
+            938,
+            1217,
+            969
+          ]
+        ],
+        "path": "../concepts/mobile-redesign-2026-08-03/feedback-vfx-sheet.png",
+        "selections": [
+          [
+            620,
+            840,
+            800,
+            1020
+          ],
+          [
+            800,
+            840,
+            950,
+            1020
+          ],
+          [
+            950,
+            840,
+            1095,
+            1020
+          ],
+          [
+            1090,
+            840,
+            1254,
+            1020
+          ]
+        ]
+      },
+      "suggestedFps": 8,
+      "validation": {
+        "alpha": true,
+        "frameCoverage": [
+          0.224528,
+          0.158366,
+          0.09436,
+          0.035889
+        ],
+        "nonTransparentCoverage": 0.128286,
+        "transparentCorners": true
+      },
+      "width": 768
+    }
+  },
+  "generator": "tools/extract_mobile_ui_assets.py",
+  "pixelPolicy": {
+    "alpha": "preserved from RGBA source",
+    "projectilePolicy": "no fixed projectile imagery is included",
+    "resampling": "none; use nearest-neighbor if downstream scaling is unavoidable",
+    "runtimeAuthority": "presentation-only; never use these pixels for collision or gameplay truth"
+  },
+  "sources": [
+    {
+      "height": 1254,
+      "path": "../concepts/mobile-redesign-2026-08-03/feedback-vfx-sheet.png",
+      "sha256": "d36ec7aade64dc5e1372d4c1df09ddb419e04d08154d9f9ea505799597d390a7",
+      "width": 1254
+    },
+    {
+      "height": 1254,
+      "path": "../concepts/mobile-redesign-2026-08-03/mobile-hud-kit.png",
+      "sha256": "d104dcc7ba11a1f97cc8af0df5a21fdc8924a04b7902cfcf1eaf9bd53f3581a7",
+      "width": 1254
+    }
+  ],
+  "version": 1
+}

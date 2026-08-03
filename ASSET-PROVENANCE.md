@@ -142,3 +142,55 @@ would create a visible-versus-physical mismatch. `drawIsland` and
 the PixelLab image is a palette/composition target for the next environment
 pass. Three additional generations were spent, leaving 23 of 40 trial
 generations. No credential or remote job identifier is stored.
+
+## Mobile redesign concept pack — 2026-08-03
+
+The built-in OpenAI ImageGen workflow produced a mobile-first art-direction
+target and four supporting candidate sheets under
+`client/public/assets/concepts/mobile-redesign-2026-08-03/`. References were
+limited to the two user-supplied Cozy Chaos gameplay screenshots plus the
+repository's accepted PixelLab environment and active cyan wizard sheets.
+
+| File | Dimensions | Alpha/post-process | Status |
+|---|---:|---|---|
+| `mobile-gameplay-ideal.png` | 851×1847 | Opaque source output | `reference` |
+| `mobile-hud-kit.png` | 1254×1254 | Green key, soft matte, despill | `candidate` |
+| `environment-props-kit.png` | 1254×1254 | Red key, tight hard matte | `candidate` |
+| `feedback-vfx-sheet.png` | 1254×1254 | Green key, soft matte, despill | `candidate` |
+| `cyan-hit-ko-concept-sheet.png` | 2172×724 | Green key, soft matte, despill | `animation-concept` |
+
+The pack intentionally contains no fixed spell projectile. Rune bodies and
+fragments remain procedural, and environment pixels remain presentation-only.
+See the pack-local `README.md` and `manifest.json` for integration guardrails.
+
+The target now informs the responsive HTML/CSS hierarchy, colour, wind
+emphasis, and compact phase treatment. The first implementation pass did not
+promote generated pixels; the follow-up below promotes only independently
+validated presentation assets. The cyan hit/rescue-KO concept was rejected: feet and pose bounds
+move substantially between cells, rescue bubbles change the occupied box, and
+right-edge content is clipped. Promotion requires hand-cleaned per-frame
+bounds, a stable foot/pelvis anchor, repaired edge pixels, and validation at
+48 px and 80 px before deterministic pink palette remapping. The accepted
+idle/cast pilot and procedural fallback remain safer.
+
+## Mobile runtime art pass — Session 18
+
+OpenAI ImageGen produced
+`client/public/assets/mobile-ui/backgrounds/mobile-dream-sky.png` from the
+accepted mobile composition and PixelLab environment references. The source
+prompt required a scenery-only 9:16 sky: central combat corridor open, cloud
+banks restricted to the edges, and no island, crystal, wizard, rune, arrow,
+HUD, text, or logo. The repository copy is 852×1846, palette-quantized to 192
+colours without resizing, 399,635 bytes, SHA-256
+`52f327d75d3ba2867cad6cee8c16fde0b5d2ab885ee68a215cf3581765a59eb9`.
+The renderer uses it only for portrait stages and retains the procedural sky
+as both its decode-failure and landscape fallback.
+
+The deterministic pipeline in `tools/extract_mobile_ui_assets.py` also
+promotes nine independently cropped RGBA assets from the concept sheets:
+three HUD ornaments and six presentation-only VFX strips. Exact crop bounds,
+dimensions, animation layout, alpha coverage, and hashes live in
+`client/public/assets/mobile-ui/extracted-assets.json`. No generated island or
+crystal is promoted because those pixels would not match authoritative
+collision geometry. No fixed projectile is promoted; rune matter remains
+derived from simulation state.
