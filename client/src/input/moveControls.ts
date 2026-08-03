@@ -39,6 +39,26 @@ const KEY_LEFT = new Set(['ArrowLeft', 'a', 'A']);
 const KEY_RIGHT = new Set(['ArrowRight', 'd', 'D']);
 const KEY_JUMP = new Set([' ', 'ArrowUp', 'w', 'W']);
 
+/**
+ * True when a key event is destined for a text field.
+ *
+ * The movement keys double as characters — W/A/D, space, the arrows — and the
+ * listeners below `preventDefault()` on every match. Bound on `window`, that
+ * also swallows the keystroke while the player is typing in a form: the lobby's
+ * room-code input could not accept a "W" (jump), "A"/"D" (strafe) or a space,
+ * so codes containing those letters were impossible to enter. Skip the handler
+ * whenever focus is in an input, textarea, select, or contenteditable element.
+ */
+export function isTextEntryTarget(target: EventTarget | null): boolean {
+  // Duck-typed rather than `instanceof HTMLElement`: it survives elements from
+  // another realm (iframe) and is unit-testable without a DOM.
+  const el = target as { tagName?: unknown; isContentEditable?: unknown } | null;
+  if (el === null || typeof el !== 'object') return false;
+  if (el.isContentEditable === true) return true;
+  const tag = typeof el.tagName === 'string' ? el.tagName.toUpperCase() : '';
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
 export class MoveControls {
   private readonly held = { left: false, right: false };
   private jumpsLeft = CONFIG.movement.jumpsPerSetup;
@@ -135,6 +155,7 @@ export class MoveControls {
   private bindKeyboard(): void {
     const down = (event: KeyboardEvent): void => {
       if (event.repeat) return;
+      if (isTextEntryTarget(event.target)) return;
       if (KEY_LEFT.has(event.key)) this.setHeld('left', true);
       else if (KEY_RIGHT.has(event.key)) this.setHeld('right', true);
       else if (KEY_JUMP.has(event.key)) this.requestJump();
@@ -142,6 +163,7 @@ export class MoveControls {
       event.preventDefault();
     };
     const up = (event: KeyboardEvent): void => {
+      if (isTextEntryTarget(event.target)) return;
       if (KEY_LEFT.has(event.key)) this.setHeld('left', false);
       else if (KEY_RIGHT.has(event.key)) this.setHeld('right', false);
     };
